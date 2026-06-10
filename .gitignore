@@ -1,0 +1,99 @@
+## .NET / Visual Studio
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+.vs/
+*.userprefs
+*.userosscache
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+
+## Publish output
+publish/
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Roslyn cache files
+*.VC.db
+*.VC.opendb
+.ionide/
+
+## Test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*/
+CoverageReport*/
+
+## Rider
+.idea/
+*.sln.iml
+
+## Local settings (may contain UNC paths / credentials)
+C:\ProgramData\MustRead\
+settings.json
+appsettings.Local.json
+
+## OS
+Thumbs.db
+.DS_Store
+desktop.ini
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+## Logs
+*.log
+
+## Temp / scratch files
+*.tmp
+*.temp
+~$*
+
+## Internal working files (not for public repo)
+prompt.md
+
+## ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## Windows installer / packaging artifacts
+*.msm
+*.msp
+*.msix
+*.appx
+
+## Self-contained publish artifacts already excluded by publish/ above
