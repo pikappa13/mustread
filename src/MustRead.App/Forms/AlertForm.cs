@@ -124,7 +124,15 @@ public class AlertForm : Form
 
     private void AckButton_Click(object? sender, EventArgs e)
     {
+        // Guard against double-clicks / re-entrancy: once acknowledged we are
+        // closing, ignore any further clicks.
+        if (_acknowledged) return;
         _acknowledged = true;
+
+        // Mark read first (updates the in-memory guard so the poll timer won't
+        // re-open this alert), then close. MarkAsRead swallows its own IO errors,
+        // so a slow/locked SMB share can never block the window from closing.
+        _ackButton.Enabled = false;
         _receiver.MarkAsRead(_message.MessageId);
         Close();
     }
