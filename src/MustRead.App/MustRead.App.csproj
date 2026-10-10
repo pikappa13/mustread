@@ -16,6 +16,11 @@
     <Description>Open-source Windows desktop alert system with full-screen notifications and read acknowledgements.</Description>
   </PropertyGroup>
 
+  <!-- Single-file publish (CI, release): compressed, as v1.0.x was (~70 MB instead of ~160 MB). -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="Resources\app.ico" />
   </ItemGroup>
