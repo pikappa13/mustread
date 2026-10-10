@@ -304,6 +304,7 @@ Il piano tecnico completo, con priorità, dipendenze, criteri di accettazione e 
 - [ ] Eseguibile e MSI firmati digitalmente
 
 ### v1.2 — Operatività e UX
+- [ ] **Grafica rinnovata** di tutte le finestre: tema coerente, testo nitido ad alta risoluzione, tema scuro, alert che non taglia i messaggi lunghi, storico in tabella
 - [ ] Ricevute di lettura per destinatario visibili al mittente
 - [ ] Storico con filtri, ricerca ed export CSV
 - [ ] Livelli info / warning / critical e suono configurabile
