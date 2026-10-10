@@ -58,8 +58,9 @@ jobs:
           Copy-Item out/MustRead.exe dist/MustRead.exe
           Copy-Item msi/MustRead.msi "dist/$name.msi"
           Compress-Archive -Path out/MustRead.exe -DestinationPath "dist/$name.zip"
-          Get-ChildItem dist | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } |
-            Out-File -Encoding ascii dist/SHA256SUMS.txt
+          # Hash first, write after: the checksum file must not be listed while it is created.
+          $sums = @(Get-ChildItem dist -File) | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
+          $sums | Out-File -Encoding ascii dist/SHA256SUMS.txt
           Get-Content dist/SHA256SUMS.txt
 
       - name: Create draft release
