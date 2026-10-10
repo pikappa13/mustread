@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MustRead.App\MustRead.App.csproj" />
+    <!-- Built alongside the tests; spawned as separate processes by MultiProcessTests. -->
+    <ProjectReference Include="..\MustRead.TestHost\MustRead.TestHost.csproj" />
   </ItemGroup>
 
 </Project>
