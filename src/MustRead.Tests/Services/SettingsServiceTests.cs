@@ -112,4 +112,5 @@ internal class TestableSettingsService : SettingsService
     protected override string LocalSettingsPath => Path.Combine(_baseDir, "settings.json");
     protected override string LocalReadMessagesPath => Path.Combine(_baseDir, "read_messages.json");
     protected override string LegacyReadMessagesPath => Path.Combine(_baseDir, "legacy_read_messages.json");
+    protected override string LocalOutboxPath => Path.Combine(_baseDir, "outbox");
 }

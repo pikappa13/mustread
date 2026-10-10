@@ -16,6 +16,11 @@ public class SettingsService
     // v1.0.x machine-wide read-state, imported once to avoid re-showing old messages.
     protected virtual string LegacyReadMessagesPath => @"C:\ProgramData\MustRead\read_messages.json";
 
+    // Per-user queue of history records not yet written to the share.
+    protected virtual string LocalOutboxPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "MustRead", "outbox");
+
     public AppSettings Settings { get; private set; } = new();
 
     public void Load()
@@ -67,4 +72,6 @@ public class SettingsService
     public string GetLocalReadMessagesPath() => LocalReadMessagesPath;
 
     public string GetLegacyReadMessagesPath() => LegacyReadMessagesPath;
+
+    public string GetLocalOutboxPath() => LocalOutboxPath;
 }

@@ -57,6 +57,21 @@ public class AutostartServiceTests
     }
 
     [Fact]
+    public void Enable_WritesQuotedPathWithAutostartArgument()
+    {
+        try
+        {
+            AutostartService.Enable(FakeExePath);
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(AutostartService.RegistryKey);
+            Assert.Equal($"\"{FakeExePath}\" --autostart", key?.GetValue("MustRead"));
+        }
+        finally
+        {
+            AutostartService.Disable();
+        }
+    }
+
+    [Fact]
     public void IsEnabled_WhenNotSet_ReturnsFalse()
     {
         AutostartService.Disable();

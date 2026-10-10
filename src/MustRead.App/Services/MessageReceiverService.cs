@@ -8,8 +8,14 @@ public class MessageReceiverService
     private readonly SettingsService _settings;
     private readonly SessionInfoService _session;
     private readonly HistoryService _history;
+    private readonly ConnectionStatus _status;
 
     private HashSet<string> _readMessageIds = new();
+    // Last write time of the read-state file we merged; lets each poll pick up
+    // acks made by another instance of the same user without re-reading every time.
+    private DateTime _readStateStamp = DateTime.MinValue;
+    // Malformed message files already reported, so the log is not flooded every poll.
+    private readonly HashSet<string> _reportedBadFiles = new(StringComparer.OrdinalIgnoreCase);
     // Messages already handed off to the UI (shown or queued). Guards against the
     // poll timer re-opening an alert for a message whose form is still on screen
     // or still being acknowledged. Separate from _readMessageIds so it covers the
@@ -22,11 +28,13 @@ public class MessageReceiverService
 
     public event Action<AlertMessage>? MessageReceived;
 
-    public MessageReceiverService(SettingsService settings, SessionInfoService session, HistoryService history)
+    public MessageReceiverService(SettingsService settings, SessionInfoService session, HistoryService history,
+        ConnectionStatus? status = null)
     {
         _settings = settings;
         _session = session;
         _history = history;
+        _status = status ?? new ConnectionStatus();
     }
 
     public void Start()
@@ -36,7 +44,8 @@ public class MessageReceiverService
         _pollTimer = new System.Threading.Timer(
             Poll,
             null,
-            TimeSpan.FromSeconds(_settings.Settings.PollingSeconds),
+            // Jitter so many clients started together don't poll the share in sync.
+            TimeSpan.FromSeconds(_settings.Settings.PollingSeconds) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000)),
             TimeSpan.FromSeconds(_settings.Settings.PollingSeconds));
     }
 
@@ -50,6 +59,13 @@ public class MessageReceiverService
         if (Interlocked.Exchange(ref _polling, 1) == 1) return;
         try
         {
+            // Directory.Exists below returns false (no exception) when the share
+            // is offline, so check the root explicitly to report the outage.
+            if (!Directory.Exists(_settings.Settings.ServerPath))
+                throw new DirectoryNotFoundException($"Cartella condivisa non raggiungibile: '{_settings.Settings.ServerPath}'");
+
+            RefreshReadStateFromDisk();
+
             var client = _session.GetCurrentSession();
             var folders = new[]
             {
@@ -67,10 +83,14 @@ public class MessageReceiverService
                     ProcessMessageFile(file, client);
                 }
             }
+
+            if (_status.ReportSuccess())
+                Log.Info("Cartella condivisa di nuovo raggiungibile (polling)");
         }
         catch (Exception ex)
         {
-            Log.Warn("Polling della cartella condivisa fallito", ex);
+            if (_status.ReportFailure("Polling", ex))
+                Log.Warn("Polling della cartella condivisa fallito", ex);
         }
         finally
         {
@@ -88,10 +108,14 @@ public class MessageReceiverService
         }
         catch (Exception ex)
         {
-            Log.Warn($"Messaggio illeggibile: '{filePath}'", ex);
+            ReportBadFile(filePath, ex);
             return;
         }
-        if (msg == null || string.IsNullOrWhiteSpace(msg.MessageId)) return;
+        if (msg == null || string.IsNullOrWhiteSpace(msg.MessageId))
+        {
+            ReportBadFile(filePath, null);
+            return;
+        }
 
         lock (_sync)
         {
@@ -116,6 +140,39 @@ public class MessageReceiverService
         }
     }
 
+    private void ReportBadFile(string filePath, Exception? ex)
+    {
+        // A file still being written can fail once; only the first failure per
+        // file is logged. Receivers never delete inbox files (they have no rights to).
+        lock (_sync)
+        {
+            if (!_reportedBadFiles.Add(filePath)) return;
+        }
+        Log.Warn($"Messaggio illeggibile o non valido: '{filePath}'", ex);
+    }
+
+    private void RefreshReadStateFromDisk()
+    {
+        var path = _settings.GetLocalReadMessagesPath();
+        try
+        {
+            if (!File.Exists(path)) return;
+            var stamp = File.GetLastWriteTimeUtc(path);
+            if (stamp == _readStateStamp) return;
+
+            var ids = ReadIdsFile(path);
+            lock (_sync)
+            {
+                _readMessageIds.UnionWith(ids);
+                _readStateStamp = stamp;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Rilettura stato letture da '{path}' fallita", ex);
+        }
+    }
+
     public void MarkAsRead(string messageId)
     {
         // Update the in-memory guards and persist the read-state, all under the
@@ -132,20 +189,18 @@ public class MessageReceiverService
             SaveReadMessages();
         }
 
-        // The history record goes to the SMB share, which can be slow or locked.
-        // Run it off the UI thread so it can never stall the window from closing.
-        System.Threading.Tasks.Task.Run(() =>
+        // The read record is queued locally right away (durable across crashes and
+        // offline shares); pushing it to the SMB share, which can be slow or
+        // locked, runs off the UI thread so it can never stall the window closing.
+        try
         {
-            try
-            {
-                var client = _session.GetCurrentSession();
-                _history.RecordRead(messageId, client);
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Registrazione lettura {messageId} sulla share fallita", ex);
-            }
-        });
+            _history.RecordRead(messageId, _session.GetCurrentSession(), flush: false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Accodamento conferma {messageId} fallito", ex);
+        }
+        System.Threading.Tasks.Task.Run(_history.Flush);
     }
 
     private void LoadReadMessages()

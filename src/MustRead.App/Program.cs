@@ -21,6 +21,11 @@ static class Program
         using var mutex = new Mutex(true, "MustRead_SingleInstance", out bool isNewInstance);
         if (!isNewInstance)
         {
+            // Started by the Run key / installer while already running (e.g. both a
+            // per-user and a machine-wide autostart entry): nothing to tell the user.
+            if (args.Contains(AutostartService.AutostartArgument))
+                return;
+
             MessageBox.Show(
                 "MustRead è già in esecuzione.",
                 "MustRead",
@@ -57,13 +62,15 @@ static class Program
                 return;
         }
 
+        var status = new ConnectionStatus();
         var session = new SessionInfoService();
-        var history = new HistoryService(settings);
-        var registry = new ClientRegistryService(settings, session);
+        var history = new HistoryService(settings, status);
+        var registry = new ClientRegistryService(settings, session, status);
         var sender = new MessageSenderService(settings, session, history);
-        var receiver = new MessageReceiverService(settings, session, history);
+        var receiver = new MessageReceiverService(settings, session, history, status);
+        var diagnostics = new DiagnosticsService(settings, session, history, sender, status);
 
-        Application.Run(new MainForm(settings, registry, sender, receiver));
+        Application.Run(new MainForm(settings, registry, sender, receiver, history, status, diagnostics));
     }
 
     private static void RunSettingsOnly()
