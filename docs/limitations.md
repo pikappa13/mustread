@@ -27,9 +27,16 @@ Un amministratore locale può terminare il processo MustRead tramite Task Manage
 o altri strumenti di sistema. In quel caso il messaggio rimane non confermato.
 
 ### Connettività di rete
-MustRead richiede accesso continuo alla cartella condivisa. In caso di
-disconnessione di rete, i messaggi non vengono ricevuti finché la connessione
-non è ripristinata.
+MustRead richiede accesso alla cartella condivisa per ricevere messaggi. In caso di
+disconnessione i nuovi messaggi arrivano solo quando la connessione torna; l'icona
+nella tray lo segnala. Le conferme di lettura date mentre la share non è
+raggiungibile restano in una coda locale e vengono scritte nello storico al ritorno
+della connessione (possono comparire una seconda volta in caso di crash a metà
+scrittura, mai andare perse).
+
+### Storico modificabile
+Lo storico è un insieme di file sulla share: chi ha permesso di scrittura su
+`history\` può alterarlo. Non è un registro di audit a prova di manomissione.
 
 ### Sicurezza file
 I messaggi sono file JSON in chiaro. Chiunque abbia accesso alla cartella
