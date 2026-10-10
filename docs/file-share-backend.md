@@ -70,14 +70,21 @@ database, web server o cloud.
 ## Accesso concorrente
 
 I file JSONL in `history\` possono essere scritti da più client contemporaneamente.
-MustRead usa un meccanismo di lock via file sidecar `.lock` con retry automatico
-per evitare corruzione dei dati.
+MustRead usa un meccanismo di lock via file sidecar `.lock` con retry e backoff
+per evitare corruzione dei dati. Se il lock non si ottiene entro ~4,5 secondi la
+scrittura fallisce e viene registrata nel log locale: non si scrive mai senza lock.
+I file JSON completi (messaggi, heartbeat) sono scritti su file temporaneo e poi
+rinominati, così un lettore non vede mai un file a metà.
 
 ## Pulizia
 
 MustRead non cancella automaticamente i messaggi dall'inbox dopo la lettura.
 I messaggi vengono ignorati (non mostrati di nuovo) perché l'ID viene salvato
-in `C:\ProgramData\MustRead\read_messages.json` su ogni client.
+per utente in `%LOCALAPPDATA%\MustRead\read_messages.json`.
+Lo stato è separato per utente Windows: su PC condivisi e server RDP la
+conferma di un utente non influisce sugli altri. Al primo avvio viene importato
+il vecchio file `C:\ProgramData\MustRead\read_messages.json` della v1.0.x,
+per non rimostrare messaggi già letti.
 
 Periodicamente si può svuotare manualmente le cartelle inbox o implementare
 uno script di cleanup.
