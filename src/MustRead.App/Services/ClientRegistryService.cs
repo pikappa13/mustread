@@ -43,9 +43,10 @@ public class ClientRegistryService
             var filePath = Path.Combine(clientsPath, $"{info.ClientId}.json");
             FileLockHelper.WriteAllTextSafe(filePath, JsonHelper.Serialize(info));
         }
-        catch
+        catch (Exception ex)
         {
             // Heartbeat failure is non-fatal
+            Log.Warn("Heartbeat sulla cartella condivisa fallito", ex);
         }
     }
 
@@ -68,7 +69,10 @@ public class ClientRegistryService
                 if (client != null && client.IsOnline(threshold))
                     clients.Add(client);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Warn($"File client illeggibile: '{file}'", ex);
+            }
         }
 
         return clients;

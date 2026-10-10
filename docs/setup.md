@@ -80,6 +80,16 @@ e inserire le identità Windows autorizzate all'invio:
 ```
 
 Se il file non esiste, chiunque con `enableSender: true` può inviare.
+Per i deployment protetti impostare `"requireAuthorizedSenders": true` nel
+`settings.json` dei client: in quel caso, se il file manca, nessuno può inviare.
+
+Se il file esiste ma è illeggibile o malformato, l'invio viene sempre negato
+(fail-closed). L'autorizzazione viene ricontrollata a ogni invio, non solo
+all'apertura della finestra.
+
+> I permessi NTFS/SMB della share restano il vero confine di sicurezza: un utente
+> che può scrivere direttamente in `inbox\` può creare messaggi senza passare da
+> MustRead. Concedere la scrittura su `inbox\` solo ai mittenti.
 
 ## 4. Avviare MustRead
 
@@ -98,3 +108,10 @@ MustRead include la funzione integrata di autostart:
 MustRead aggiunge automaticamente una voce in `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` — senza richiedere privilegi di amministratore.
 
 Per deployment aziendale su più PC, usare Group Policy o uno script di logon che aggiunga la stessa voce di registro per ogni utente.
+
+## 6. Log diagnostici
+
+Ogni utente ha un log locale in `%LOCALAPPDATA%\MustRead\logs\mustread-AAAAMMGG.log`
+(conservato 14 giorni). Contiene errori di rete, lock e permessi, ma mai il
+testo dei messaggi. È il primo posto da controllare se un messaggio non arriva
+o una conferma non compare nello storico.

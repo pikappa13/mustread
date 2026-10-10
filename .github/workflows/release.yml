@@ -1,0 +1,48 @@
+name: Release
+
+# Pushing a tag like v1.1.0 builds from a clean checkout, runs the tests and
+# creates a DRAFT release with the exe and its SHA-256. Publishing the draft
+# stays a manual step.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check version matches tag
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          [xml]$proj = Get-Content src/MustRead.App/MustRead.App.csproj
+          $version = $proj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ($version -ne $tag) { throw "Tag $tag diverso da <Version> $version" }
+
+      - name: Test
+        run: dotnet test MustRead.sln -c Release
+
+      - name: Publish
+        run: dotnet publish src/MustRead.App/MustRead.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "MustRead-${{ github.ref_name }}-win-x64"
+          Compress-Archive -Path out/MustRead.exe -DestinationPath "$name.zip"
+          (Get-FileHash out/MustRead.exe -Algorithm SHA256).Hash + "  MustRead.exe" | Out-File -Encoding ascii SHA256SUMS.txt
+          (Get-FileHash "$name.zip" -Algorithm SHA256).Hash + "  $name.zip" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.ref_name }} --draft --title "MustRead ${{ github.ref_name }}" --notes "Vedi CHANGELOG.md" out/MustRead.exe MustRead-${{ github.ref_name }}-win-x64.zip SHA256SUMS.txt

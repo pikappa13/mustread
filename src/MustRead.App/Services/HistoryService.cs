@@ -63,9 +63,10 @@ public class HistoryService
                 .Replace("\n", " ");
             FileLockHelper.AppendLine(path, line);
         }
-        catch
+        catch (Exception ex)
         {
-            // History write failure is non-fatal
+            // History write failure is non-fatal, but must leave a trace
+            Log.Error($"Scrittura storico {fileName} fallita", ex);
         }
     }
 }

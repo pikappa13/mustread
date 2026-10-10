@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%2F11-blue)](https://github.com/pikappa13/mustread)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/download/dotnet/8.0)
-[![Build](https://img.shields.io/badge/Build-Passing-brightgreen)](https://github.com/pikappa13/mustread)
+[![CI](https://github.com/pikappa13/mustread/actions/workflows/ci.yml/badge.svg)](https://github.com/pikappa13/mustread/actions/workflows/ci.yml)
 
 ---
 
@@ -35,6 +35,7 @@ Perfetto per:
 | 🖥️ **Invio per computer** | Messaggi diretti a un PC specifico |
 | 📣 **Broadcast** | Invio a tutti gli utenti connessi contemporaneamente |
 | 📋 **Storico completo** | Log di messaggi inviati, mostrati e confermati |
+| 🩺 **Log diagnostico** | Log locale per utente in `%LOCALAPPDATA%\MustRead\logs` |
 | 🔌 **Offline delivery** | I messaggi restano in coda se il PC è offline |
 | 🖧 **RDP / Terminal Server** | Funziona nelle sessioni Remote Desktop |
 | 🔒 **Autorizzazione mittenti** | Solo gli utenti autorizzati possono inviare messaggi |
@@ -131,7 +132,8 @@ In alternativa, crea `C:\ProgramData\MustRead\settings.json`:
   "enableReceiver": true,
   "pollingSeconds": 3,
   "allowSendToAll": true,
-  "applicationName": "MustRead"
+  "applicationName": "MustRead",
+  "requireAuthorizedSenders": false
 }
 ```
 
@@ -143,6 +145,7 @@ In alternativa, crea `C:\ProgramData\MustRead\settings.json`:
 | `pollingSeconds` | Frequenza di controllo nuovi messaggi (secondi) |
 | `allowSendToAll` | Abilita il broadcast a tutti gli utenti |
 | `applicationName` | Nome visualizzato nell'interfaccia |
+| `requireAuthorizedSenders` | Se `true`, senza `authorized_senders.json` nessuno può inviare |
 
 ### 3. Configurare i mittenti autorizzati (opzionale)
 
@@ -155,7 +158,7 @@ Crea `\\SERVER\MustRead\config\authorized_senders.json`:
 ]
 ```
 
-Se il file non esiste, chiunque con `enableSender: true` può inviare messaggi.
+Se il file non esiste, chiunque con `enableSender: true` può inviare messaggi, a meno che `requireAuthorizedSenders` sia `true`. Un file illeggibile o malformato nega sempre l'invio.
 
 ### 4. Avvio automatico con Windows
 
@@ -254,9 +257,12 @@ mustread/
 │   │   ├── Services/           ← Business logic: invio, ricezione, storico, registro
 │   │   ├── Models/             ← Modelli dati: AlertMessage, ClientInfo, AppSettings
 │   │   └── Utils/              ← FileLockHelper, JsonHelper, UiHelper
-│   └── MustRead.Tests/         ← Suite di test xUnit (79 test)
+│   └── MustRead.Tests/         ← Suite di test xUnit
+├── .github/workflows/          ← CI: build, test, coverage, scansione vulnerabilità
 ├── examples/                   ← File di configurazione di esempio
 ├── docs/                       ← Documentazione setup, RDP, limitazioni
+├── MustRead.sln
+├── CHANGELOG.md
 ├── README.md
 └── LICENSE
 ```
@@ -265,22 +271,27 @@ mustread/
 
 ## Roadmap
 
-### v1.1
-- [ ] Installer MSI / MSIX per deployment aziendale
-- [ ] Icona personalizzata per tipo messaggio (info / warning / critical)
-- [ ] Suono di notifica configurabile
-- [ ] Timeout opzionale (auto-conferma dopo N secondi)
+Il piano tecnico completo, con priorità, dipendenze, criteri di accettazione e gate di rilascio, è disponibile in [docs/production-roadmap.md](docs/production-roadmap.md).
 
-### v1.2
-- [ ] Invio a gruppi / reparti configurabili
-- [ ] Dashboard storico con filtri, ricerca e statistiche
-- [ ] Esportazione storico in CSV / Excel
+### v1.1 — Affidabilità
+- [x] Test versionati e CI su GitHub Actions
+- [x] Stato dei messaggi letti per utente (PC condivisi e RDP)
+- [x] Scritture con lock obbligatorio e atomiche
+- [x] Autorizzazione mittenti fail-closed e validazione destinatari
+- [x] Log diagnostico locale
+- [ ] Coda persistente per le conferme da sincronizzare sulla share
+- [ ] Test end-to-end multi-processo e multi-sessione RDP
+- [ ] Installer MSI / MSIX ed eseguibile firmato
 
-### v2.0
-- [ ] Integrazione Active Directory (lista utenti automatica)
+### v1.2 — Operatività e UX
+- [ ] Ricevute di lettura per destinatario visibili al mittente
+- [ ] Storico con filtri, ricerca ed export CSV
+- [ ] Livelli info / warning / critical e suono configurabile
+- [ ] Interfaccia in italiano e inglese, accessibilità da tastiera
+
+### v1.3 e oltre
+- [ ] Gruppi / reparti e integrazione opzionale con Active Directory
 - [ ] Backend HTTP opzionale (alternativa alla cartella SMB)
-- [ ] Servizio Windows per avvio prima del login utente
-- [ ] Firma digitale dell'eseguibile
 
 ---
 
@@ -290,8 +301,8 @@ Pull request benvenute! Per modifiche significative, apri prima una issue per di
 
 ```bash
 git clone https://github.com/pikappa13/mustread.git
-cd mustread/src/MustRead.Tests
-dotnet test   # 79 test, tutti devono passare
+cd mustread
+dotnet test MustRead.sln   # tutti i test devono passare (la CI li esegue a ogni push)
 ```
 
 ---

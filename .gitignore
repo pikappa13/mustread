@@ -64,9 +64,10 @@ CoverageReport*/
 *.sln.iml
 
 ## Local settings (may contain UNC paths / credentials)
-C:\ProgramData\MustRead\
 settings.json
 appsettings.Local.json
+*.lock
+*.corrupt
 
 ## OS
 Thumbs.db
@@ -88,9 +89,6 @@ $RECYCLE.BIN/
 prompt.md
 .plan/
 
-## Test project (kept local, not published)
-src/MustRead.Tests/
-
 ## ReSharper
 _ReSharper*/
 *.[Rr]e[Ss]harper
@@ -101,5 +99,3 @@ _ReSharper*/
 *.msp
 *.msix
 *.appx
-
-## Self-contained publish artifacts already excluded by publish/ above

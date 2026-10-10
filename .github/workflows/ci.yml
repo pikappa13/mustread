@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore MustRead.sln
+
+      - name: Build
+        run: dotnet build MustRead.sln -c Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test MustRead.sln -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
+
+      - name: Vulnerable packages
+        shell: pwsh
+        run: |
+          $out = dotnet list MustRead.sln package --vulnerable --include-transitive
+          $out
+          if ($out -match '(High|Critical)') { throw 'Pacchetti con vulnerabilità High/Critical' }
+
+      - name: Publish (self-contained, unsigned)
+        run: dotnet publish src/MustRead.App/MustRead.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MustRead-win-x64
+          path: out/MustRead.exe
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: TestResults/**/coverage.cobertura.xml

@@ -6,7 +6,15 @@ namespace MustRead.App.Services;
 public class SettingsService
 {
     protected virtual string LocalSettingsPath => @"C:\ProgramData\MustRead\settings.json";
-    protected virtual string LocalReadMessagesPath => @"C:\ProgramData\MustRead\read_messages.json";
+
+    // Read-state is per Windows user: a machine-wide file mixed acknowledgements
+    // of different users on shared PCs and RDP servers.
+    protected virtual string LocalReadMessagesPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "MustRead", "read_messages.json");
+
+    // v1.0.x machine-wide read-state, imported once to avoid re-showing old messages.
+    protected virtual string LegacyReadMessagesPath => @"C:\ProgramData\MustRead\read_messages.json";
 
     public AppSettings Settings { get; private set; } = new();
 
@@ -23,8 +31,9 @@ public class SettingsService
             var json = File.ReadAllText(LocalSettingsPath);
             Settings = JsonHelper.Deserialize<AppSettings>(json) ?? new AppSettings();
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warn($"Impostazioni illeggibili in '{LocalSettingsPath}', uso i valori predefiniti", ex);
             Settings = new AppSettings();
         }
     }
@@ -37,10 +46,11 @@ public class SettingsService
     }
 
     public string GetInboxUserPath(string domain, string username)
-        => Path.Combine(Settings.ServerPath, "inbox", "users", $"{domain}_{username}");
+        => Path.Combine(Settings.ServerPath, "inbox", "users",
+            $"{PathSafety.EnsureSafeSegment(domain)}_{PathSafety.EnsureSafeSegment(username)}");
 
     public string GetInboxComputerPath(string computerName)
-        => Path.Combine(Settings.ServerPath, "inbox", "computers", computerName);
+        => Path.Combine(Settings.ServerPath, "inbox", "computers", PathSafety.EnsureSafeSegment(computerName));
 
     public string GetInboxAllPath()
         => Path.Combine(Settings.ServerPath, "inbox", "all");
@@ -55,4 +65,6 @@ public class SettingsService
         => Path.Combine(Settings.ServerPath, "config", file);
 
     public string GetLocalReadMessagesPath() => LocalReadMessagesPath;
+
+    public string GetLegacyReadMessagesPath() => LegacyReadMessagesPath;
 }

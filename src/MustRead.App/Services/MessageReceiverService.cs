@@ -17,6 +17,8 @@ public class MessageReceiverService
     private readonly HashSet<string> _activeMessageIds = new();
     private readonly object _sync = new();
     private System.Threading.Timer? _pollTimer;
+    // 1 while a poll is running: a slow share must not stack overlapping polls.
+    private int _polling;
 
     public event Action<AlertMessage>? MessageReceived;
 
@@ -45,6 +47,7 @@ public class MessageReceiverService
 
     private void Poll(object? _)
     {
+        if (Interlocked.Exchange(ref _polling, 1) == 1) return;
         try
         {
             var client = _session.GetCurrentSession();
@@ -65,30 +68,52 @@ public class MessageReceiverService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Log.Warn("Polling della cartella condivisa fallito", ex);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _polling, 0);
+        }
     }
 
     private void ProcessMessageFile(string filePath, ClientInfo client)
     {
+        AlertMessage? msg;
         try
         {
             var json = File.ReadAllText(filePath);
-            var msg = JsonHelper.Deserialize<AlertMessage>(json);
-            if (msg == null) return;
+            msg = JsonHelper.Deserialize<AlertMessage>(json);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Messaggio illeggibile: '{filePath}'", ex);
+            return;
+        }
+        if (msg == null || string.IsNullOrWhiteSpace(msg.MessageId)) return;
 
-            lock (_sync)
-            {
-                // Skip if already acknowledged, or already shown/queued and still
-                // pending acknowledgement. Both checks happen atomically so the
-                // poll timer can never spawn a duplicate alert.
-                if (_readMessageIds.Contains(msg.MessageId)) return;
-                if (!_activeMessageIds.Add(msg.MessageId)) return;
-            }
+        lock (_sync)
+        {
+            // Skip if already acknowledged, or already shown/queued and still
+            // pending acknowledgement. Both checks happen atomically so the
+            // poll timer can never spawn a duplicate alert.
+            if (_readMessageIds.Contains(msg.MessageId)) return;
+            if (!_activeMessageIds.Add(msg.MessageId)) return;
+        }
 
-            _history.RecordShown(msg.MessageId, client);
+        _history.RecordShown(msg.MessageId, client);
+        try
+        {
             MessageReceived?.Invoke(msg);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // The UI could not take the message: release it so the next poll retries.
+            Log.Error($"Visualizzazione del messaggio {msg.MessageId} fallita", ex);
+            lock (_sync)
+                _activeMessageIds.Remove(msg.MessageId);
+        }
     }
 
     public void MarkAsRead(string messageId)
@@ -104,12 +129,11 @@ public class MessageReceiverService
         {
             _readMessageIds.Add(messageId);
             _activeMessageIds.Remove(messageId);
-            SaveReadMessages(_readMessageIds.ToList());
+            SaveReadMessages();
         }
 
-        // The history record goes to the SMB share, which can be slow or locked
-        // (FileLockHelper retries up to ~2s). Run it off the UI thread so it can
-        // never stall the window from closing.
+        // The history record goes to the SMB share, which can be slow or locked.
+        // Run it off the UI thread so it can never stall the window from closing.
         System.Threading.Tasks.Task.Run(() =>
         {
             try
@@ -117,35 +141,73 @@ public class MessageReceiverService
                 var client = _session.GetCurrentSession();
                 _history.RecordRead(messageId, client);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Error($"Registrazione lettura {messageId} sulla share fallita", ex);
+            }
         });
     }
 
     private void LoadReadMessages()
     {
         var path = _settings.GetLocalReadMessagesPath();
-        if (!File.Exists(path)) return;
+        var ids = ReadIdsFile(path);
+
+        if (!File.Exists(path))
+        {
+            // First run with per-user state: import the v1.0.x machine-wide file
+            // so already acknowledged messages are not shown again.
+            var legacy = ReadIdsFile(_settings.GetLegacyReadMessagesPath());
+            if (legacy.Count > 0)
+            {
+                ids.UnionWith(legacy);
+                Log.Info($"Importati {legacy.Count} messaggi letti dal formato v1.0");
+            }
+        }
+
+        lock (_sync)
+        {
+            _readMessageIds.UnionWith(ids);
+            if (ids.Count > 0 && !File.Exists(path))
+                SaveReadMessages();
+        }
+    }
+
+    // Must be called while holding _sync.
+    private void SaveReadMessages()
+    {
+        var path = _settings.GetLocalReadMessagesPath();
+        try
+        {
+            // Cross-process lock + merge: another MustRead instance of the same
+            // user (e.g. a second RDP session) may have written in the meantime.
+            FileLockHelper.WithLock(path, () =>
+            {
+                var onDisk = ReadIdsFile(path);
+                _readMessageIds.UnionWith(onDisk);
+                FileLockHelper.WriteAtomic(path, JsonHelper.Serialize(_readMessageIds.ToList()));
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Salvataggio stato letture in '{path}' fallito", ex);
+        }
+    }
+
+    private static HashSet<string> ReadIdsFile(string path)
+    {
+        if (!File.Exists(path)) return new HashSet<string>();
 
         try
         {
             var json = File.ReadAllText(path);
-            var ids = JsonHelper.Deserialize<List<string>>(json);
-            if (ids != null)
-                lock (_sync)
-                    _readMessageIds = new HashSet<string>(ids);
+            return new HashSet<string>(JsonHelper.Deserialize<List<string>>(json) ?? new List<string>());
         }
-        catch { }
-    }
-
-    private void SaveReadMessages(List<string> ids)
-    {
-        try
+        catch (Exception ex)
         {
-            var path = _settings.GetLocalReadMessagesPath();
-            var dir = Path.GetDirectoryName(path)!;
-            Directory.CreateDirectory(dir);
-            FileLockHelper.WriteAllTextSafe(path, JsonHelper.Serialize(ids));
+            Log.Warn($"Stato letture corrotto in '{path}', salvo una copia e riparto", ex);
+            try { File.Copy(path, path + ".corrupt", overwrite: true); } catch { /* best effort */ }
+            return new HashSet<string>();
         }
-        catch { }
     }
 }

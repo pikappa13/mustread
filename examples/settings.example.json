@@ -4,5 +4,6 @@
   "enableReceiver": true,
   "pollingSeconds": 3,
   "allowSendToAll": true,
-  "applicationName": "MustRead"
+  "applicationName": "MustRead",
+  "requireAuthorizedSenders": false
 }
