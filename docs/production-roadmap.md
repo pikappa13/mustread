@@ -33,6 +33,12 @@ Restano per la `v1.1.0` finale: prova su un server RDP reale con più utenti e s
 firma Authenticode di exe e MSI (candidatura a SignPath Foundation per progetti open source),
 test UI automatizzati e verifica DPI/accessibilità. Le fasi 6–9 sono il piano della `v1.2+`.
 
+**Priorità assoluta dopo la 1.1: la grafica.** L'interfaccia attuale è funzionale ma datata e
+in alcuni punti non regge testi lunghi o schermi ad alta risoluzione. Il piano è nella
+[Fase 7a](#fase-7a--grafica-e-interfaccia-priorità-alta): quello che si può fare restando su
+WinForms, senza riscrivere l'app. Le correzioni a basso rischio (DPI, testi lunghi nell'alert,
+icone di stato nella tray) possono entrare già nella `v1.1.0` finale.
+
 La baseline qui sotto descrive lo stato di partenza (`v1.0.1`).
 
 ---
@@ -95,6 +101,7 @@ Obiettivo: rendere il prodotto gestibile dagli amministratori e comprensibile ag
 
 Include:
 
+- **rinnovo della grafica di tutte le finestre (Fase 7a), prima di ogni altra voce;**
 - ricevute al mittente;
 - storico strutturato, filtri ed export;
 - severità e suoni;
@@ -407,6 +414,80 @@ Il log remoto può essere asincrono, ma non deve essere fire-and-forget senza pe
 
 ---
 
+## Fase 7a — Grafica e interfaccia (priorità alta)
+
+L'aspetto è la prima cosa che vede chi valuta MustRead, e oggi è il punto più debole: stili
+diversi tra le finestre, testo non nitido su schermi ad alta risoluzione, storico mostrato come
+JSON grezzo, alert che taglia i messaggi lunghi. L'obiettivo è un'interfaccia pulita e coerente
+con Windows 11 **restando su WinForms .NET 8**: niente riscrittura in WPF/WinUI, che non
+porterebbe benefici proporzionati al costo e al rischio per uno strumento di questo tipo.
+
+### Base comune
+
+- Classe unica di tema (`UiTheme`): palette, font, dimensioni e spaziature usate da tutte le
+  finestre, al posto di colori e font scritti a mano in ogni form.
+- Font Segoe UI Variable (fallback Segoe UI), gerarchia chiara titolo / testo / note.
+- Alta risoluzione: `ApplicationHighDpiMode` PerMonitorV2 e `AutoScaleMode.Dpi`, per testo
+  nitido a 125–200% e su più monitor con scaling diversi.
+- Tema chiaro e scuro che segue l'impostazione di Windows (senza dipendenze esterne).
+- Icona dell'app ridisegnata, con tutte le risoluzioni (16–256 px) nel file `.ico`.
+
+### Finestra di notifica (alert)
+
+È la finestra che vedono tutti: va curata per prima.
+
+- Layout responsive: il testo va a capo e scorre se è lungo, invece di essere tagliato.
+- Livelli Info / Avviso / Critico con colore **e** icona e titolo diversi (vedi Fase 7).
+- Pulsante "HO LETTO" più grande, con focus ben visibile, attivo dopo 1–2 secondi per evitare
+  conferme accidentali mentre l'utente sta scrivendo.
+- Mittente, data e ora leggibili; contatore "messaggio 1 di 3" se ce ne sono altri in coda.
+- Comportamento definito su più monitor (Fase 7).
+
+### Tray
+
+- Icone diverse per stato: connesso, cartella non raggiungibile, conferme da sincronizzare.
+- Menu ordinato per frequenza d'uso, con icone.
+
+### Finestra di invio
+
+- Layout a due colonne: destinatari a sinistra (ricerca, utenti e computer separati, online e
+  offline), messaggio a destra.
+- Contatore dei caratteri, anteprima dell'alert, scelta del livello.
+- Conferma esplicita prima di inviare a "Tutti".
+- Esito dell'invio chiaro, per destinatario.
+
+### Storico
+
+- Tabella con colonne al posto del JSON grezzo, ordinabile; dettaglio del messaggio al clic.
+- Filtri ed export arrivano con la Fase 6: la tabella è il prerequisito.
+
+### Impostazioni e diagnostica
+
+- Impostazioni raggruppate per sezione, con spiegazioni sotto ogni campo invece del popup di aiuto.
+- Pulsante "Prova percorso" accanto alla cartella condivisa.
+- Report di "Verifica connessione" a righe con icone verde / giallo / rosso, non solo testo.
+
+### Materiale pubblico
+
+- Screenshot aggiornati nel README e nelle note di rilascio (con dati fittizi).
+- GIF breve del flusso invio → alert → conferma.
+
+### Cosa non è possibile senza cambiare tecnologia
+
+Effetti Mica/Acrylic, animazioni fluide e controlli identici a quelli di Windows 11 richiedono
+WinUI 3 o WPF con librerie esterne. Se in futuro la grafica dovesse diventare un requisito
+commerciale, la riscrittura va valutata come epic separata (E15), dopo la Fase 7a.
+
+### Criteri di accettazione
+
+- Tutte le finestre usano `UiTheme`: nessun colore o font scritto a mano nelle form.
+- Testo nitido e layout corretto a 100%, 125%, 150% e 200% DPI, in tema chiaro e scuro.
+- Un messaggio di 10.000 caratteri è leggibile per intero nell'alert.
+- Contrasto almeno WCAG AA per testo e pulsanti.
+- Screenshot del README aggiornati a ogni release che cambia l'interfaccia.
+
+---
+
 ## Fase 7 — UX, accessibilità e localizzazione
 
 ### Attività
@@ -492,6 +573,8 @@ Un backend HTTP va progettato solo se SMB non soddisfa più requisiti di scala, 
 | E11 | Test di scala e limiti supportati | P1 | E4, E5 | M |
 | E12 | Backend HTTP opzionale | P3 | E7, E11 | XL |
 | E13 | Porting legacy .NET Framework 4.8 | P3 | E5 | XL |
+| E14 | Grafica e interfaccia (Fase 7a) | **P0** | E0 | L |
+| E15 | Eventuale riscrittura UI in WinUI 3 / WPF | P3 | E14 | XL |
 
 Le taglie indicano complessità relativa, non una stima temporale: `M`, `L`, `XL` vanno spezzate in issue implementabili e verificabili singolarmente.
 
