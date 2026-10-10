@@ -156,6 +156,7 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
+            Utils.Log.Error("Avvio di ricezione/heartbeat fallito", ex);
             MessageBox.Show(
                 $"Errore durante l'avvio:\n\n{ex.Message}\n\nVerifica il percorso della cartella condivisa nelle Impostazioni.",
                 _settings.Settings.ApplicationName,

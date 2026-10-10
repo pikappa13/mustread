@@ -16,7 +16,7 @@ public class AlertMessage
     public static string GenerateId()
     {
         var now = DateTime.Now;
-        var suffix = Guid.NewGuid().ToString("N")[..4];
+        var suffix = Guid.NewGuid().ToString("N")[..12];
         return $"{now:yyyyMMdd-HHmmss}-{suffix}";
     }
 }

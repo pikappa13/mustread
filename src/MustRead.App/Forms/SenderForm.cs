@@ -78,6 +78,7 @@ public class SenderForm : Form
             Dock = DockStyle.Fill,
             Multiline = true,
             ScrollBars = ScrollBars.Vertical,
+            MaxLength = MessageSenderService.MaxBodyLength,
             PlaceholderText = "Scrivi il messaggio qui..."
         };
 
@@ -210,6 +211,7 @@ public class SenderForm : Form
         }
         catch (Exception ex)
         {
+            Utils.Log.Error("Invio messaggio fallito", ex);
             ShowStatus($"Errore: {ex.Message}", Color.OrangeRed);
         }
     }

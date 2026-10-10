@@ -17,7 +17,10 @@ public static class UiHelper
                 return _cachedIcon;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Log.Warn("Icona applicazione non caricata", ex);
+        }
         return SystemIcons.Information;
     }
 

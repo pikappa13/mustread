@@ -75,6 +75,7 @@ public class HistoryForm : Form
         }
         catch (Exception ex)
         {
+            Utils.Log.Warn("Lettura storico fallita", ex);
             box.Text = $"Errore lettura: {ex.Message}";
         }
 

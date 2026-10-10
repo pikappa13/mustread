@@ -299,6 +299,7 @@ public class SettingsForm : Form
         }
         catch (Exception ex)
         {
+            Utils.Log.Error("Salvataggio impostazioni fallito", ex);
             _statusLabel.Text = $"Errore salvataggio: {ex.Message}";
             _statusLabel.ForeColor = Color.OrangeRed;
         }

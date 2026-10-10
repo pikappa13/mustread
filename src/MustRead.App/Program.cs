@@ -1,5 +1,6 @@
 using MustRead.App.Forms;
 using MustRead.App.Services;
+using MustRead.App.Utils;
 
 namespace MustRead.App;
 
@@ -30,11 +31,19 @@ static class Program
 
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, ex) =>
+        {
+            Log.Error("Eccezione non gestita nel thread UI", ex.Exception);
             MessageBox.Show(ex.Exception.ToString(), "MustRead — Errore imprevisto",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
+        };
         AppDomain.CurrentDomain.UnhandledException += (_, ex) =>
+        {
+            Log.Error("Eccezione critica non gestita", ex.ExceptionObject as Exception);
             MessageBox.Show(ex.ExceptionObject?.ToString(), "MustRead — Errore critico",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
+        };
+
+        Log.Info($"MustRead {Application.ProductVersion} avviato");
 
         var settings = new SettingsService();
         settings.Load();
