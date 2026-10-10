@@ -4,7 +4,8 @@ namespace MustRead.App.Services;
 
 public static class AutostartService
 {
-    private const string RegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+    // Settable so tests never touch the real Run key of the machine running them.
+    public static string RegistryKey { get; set; } = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "MustRead";
 
     public static bool IsEnabled()
@@ -19,7 +20,8 @@ public static class AutostartService
 
     public static void Enable(string exePath)
     {
-        using var key = Registry.CurrentUser.OpenSubKey(RegistryKey, true)
+        // CreateSubKey opens the key, or creates it when a fresh profile lacks it.
+        using var key = Registry.CurrentUser.CreateSubKey(RegistryKey, true)
             ?? throw new InvalidOperationException("Impossibile aprire il registro di sistema.");
         key.SetValue(ValueName, $"\"{exePath}\"");
     }
