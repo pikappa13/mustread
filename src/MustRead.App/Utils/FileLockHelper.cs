@@ -71,6 +71,20 @@ public static class FileLockHelper
     }
 
     /// <summary>
+    /// Reads a file that other processes may be appending to at the same time
+    /// (history JSONL). File.ReadAllText would fail with "file in use".
+    /// </summary>
+    public static string ReadAllTextShared(string filePath)
+    {
+        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    public static string[] ReadAllLinesShared(string filePath)
+        => ReadAllTextShared(filePath).Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
     /// Writes to a temp file in the same directory, flushes it to disk, then
     /// renames it over the destination. Caller is responsible for locking.
     /// </summary>

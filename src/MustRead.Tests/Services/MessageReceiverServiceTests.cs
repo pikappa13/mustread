@@ -378,7 +378,7 @@ public class MessageReceiverServiceTests : IDisposable
 
         Assert.True(File.Exists(shownPath));
         // RecordRead runs on a background thread; wait for it.
-        Assert.True(WaitUntil(() => File.Exists(readPath) && File.ReadAllText(readPath).Contains(msg.MessageId)),
+        Assert.True(WaitUntil(() => File.Exists(readPath) && FileLockHelper.ReadAllTextShared(readPath).Contains(msg.MessageId)),
             "read history should be written shortly after MarkAsRead");
         _receiver.Stop();
     }

@@ -65,7 +65,7 @@ public class HistoryForm : Form
             var path = _settings.GetHistoryPath(file);
             if (File.Exists(path))
             {
-                var lines = File.ReadAllLines(path);
+                var lines = Utils.FileLockHelper.ReadAllLinesShared(path);
                 box.Text = string.Join(Environment.NewLine, lines.Reverse());
             }
             else

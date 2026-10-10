@@ -139,6 +139,18 @@ public class FileLockHelperTests : IDisposable
     }
 
     [Fact]
+    public void ReadAllTextShared_WorksWhileAnotherWriterHasTheFileOpen()
+    {
+        // Same open mode AppendLine uses: the history window must still read the file.
+        var path = Path.Combine(_testDir, "busy.jsonl");
+        File.WriteAllText(path, "line1\n");
+        using var writer = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
+
+        Assert.Throws<IOException>(() => File.ReadAllText(path));
+        Assert.Equal(new[] { "line1" }, FileLockHelper.ReadAllLinesShared(path));
+    }
+
+    [Fact]
     public void WithLock_ReleasesLockWhenActionThrows()
     {
         var path = Path.Combine(_testDir, "throws.json");
