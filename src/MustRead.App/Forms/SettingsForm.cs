@@ -260,6 +260,12 @@ public class SettingsForm : Form
     private void PopulateFields()
     {
         _serverPathBox.Text = _settings.Settings.ServerPath;
+        if (_settings.ServerPathEnforcedByPolicy)
+        {
+            // Set by Group Policy (HKLM\SOFTWARE\Policies\MustRead): not editable here.
+            _serverPathBox.ReadOnly = true;
+            _serverPathBox.AccessibleDescription = "Impostato dai criteri di gruppo";
+        }
         _appNameBox.Text = _settings.Settings.ApplicationName;
         _pollingSpin.Value = Math.Clamp(_settings.Settings.PollingSeconds, 1, 60);
         _enableSenderCheck.Checked = _settings.Settings.EnableSender;

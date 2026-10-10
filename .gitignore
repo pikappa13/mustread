@@ -99,3 +99,9 @@ _ReSharper*/
 *.msp
 *.msix
 *.appx
+
+## Build output used by the installer
+out/
+msi/
+msi-old/
+dist/

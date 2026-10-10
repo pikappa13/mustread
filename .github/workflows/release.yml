@@ -1,8 +1,9 @@
 name: Release
 
-# Pushing a tag like v1.1.0 builds from a clean checkout, runs the tests and
-# creates a DRAFT release with the exe and its SHA-256. Publishing the draft
-# stays a manual step.
+# Pushing a tag like v1.1.0 (or v1.1.0-rc.1) builds from a clean checkout, runs
+# the tests and the installer smoke test, and creates a DRAFT release with the
+# exe, the MSI, a portable zip and SHA-256 checksums. Publishing the draft stays
+# a manual step. Tags with a suffix (-rc.1) are marked as pre-release.
 on:
   push:
     tags: ['v*']
@@ -21,12 +22,15 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Check version matches tag
+        id: version
         shell: pwsh
         run: |
           $tag = '${{ github.ref_name }}'.TrimStart('v')
           [xml]$proj = Get-Content src/MustRead.App/MustRead.App.csproj
           $version = $proj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
           if ($version -ne $tag) { throw "Tag $tag diverso da <Version> $version" }
+          "msi=$($version.Split('-')[0])" >> $env:GITHUB_OUTPUT
+          "prerelease=$($version.Contains('-'))" >> $env:GITHUB_OUTPUT
 
       - name: Test
         run: dotnet test MustRead.sln -c Release
@@ -34,15 +38,35 @@ jobs:
       - name: Publish
         run: dotnet publish src/MustRead.App/MustRead.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
 
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          dotnet build installer/MustRead.Installer.wixproj --no-incremental -c Release -p:ProductVersion=0.9.0 -o msi-old
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet build installer/MustRead.Installer.wixproj --no-incremental -c Release -p:ProductVersion=${{ steps.version.outputs.msi }} -o msi
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Installer smoke test
+        shell: pwsh
+        run: ./installer/Test-Installer.ps1 -OldMsi msi-old/MustRead.msi -NewMsi msi/MustRead.msi
+
       - name: Package
         shell: pwsh
         run: |
           $name = "MustRead-${{ github.ref_name }}-win-x64"
-          Compress-Archive -Path out/MustRead.exe -DestinationPath "$name.zip"
-          (Get-FileHash out/MustRead.exe -Algorithm SHA256).Hash + "  MustRead.exe" | Out-File -Encoding ascii SHA256SUMS.txt
-          (Get-FileHash "$name.zip" -Algorithm SHA256).Hash + "  $name.zip" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item out/MustRead.exe dist/MustRead.exe
+          Copy-Item msi/MustRead.msi "dist/$name.msi"
+          Compress-Archive -Path out/MustRead.exe -DestinationPath "dist/$name.zip"
+          Get-ChildItem dist | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } |
+            Out-File -Encoding ascii dist/SHA256SUMS.txt
+          Get-Content dist/SHA256SUMS.txt
 
       - name: Create draft release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create ${{ github.ref_name }} --draft --title "MustRead ${{ github.ref_name }}" --notes "Vedi CHANGELOG.md" out/MustRead.exe MustRead-${{ github.ref_name }}-win-x64.zip SHA256SUMS.txt
+        run: |
+          $flags = @('--draft', '--title', "MustRead ${{ github.ref_name }}", '--notes', 'Vedi CHANGELOG.md')
+          if ('${{ steps.version.outputs.prerelease }}' -eq 'True') { $flags += '--prerelease' }
+          gh release create '${{ github.ref_name }}' @flags (Get-ChildItem dist).FullName

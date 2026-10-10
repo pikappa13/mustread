@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: dotnet build MustRead.sln -c Release --no-restore -warnaserror
 
-      - name: Test
+      - name: Test (unit, integration, multi-process)
         run: dotnet test MustRead.sln -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
 
       - name: Vulnerable packages
@@ -37,10 +37,26 @@ jobs:
       - name: Publish (self-contained, unsigned)
         run: dotnet publish src/MustRead.App/MustRead.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
 
+      - name: Build MSI (current version and an older one for the upgrade test)
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content src/MustRead.App/MustRead.App.csproj
+          $version = ($proj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Split('-')[0]
+          dotnet build installer/MustRead.Installer.wixproj --no-incremental -c Release -p:ProductVersion=0.9.0 -o msi-old
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet build installer/MustRead.Installer.wixproj --no-incremental -c Release -p:ProductVersion=$version -o msi
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Installer smoke test (install, upgrade, uninstall)
+        shell: pwsh
+        run: ./installer/Test-Installer.ps1 -OldMsi msi-old/MustRead.msi -NewMsi msi/MustRead.msi
+
       - uses: actions/upload-artifact@v7
         with:
           name: MustRead-win-x64
-          path: out/MustRead.exe
+          path: |
+            out/MustRead.exe
+            msi/MustRead.msi
 
       - uses: actions/upload-artifact@v7
         if: always()
