@@ -46,11 +46,11 @@ public class ClientInfoTests
         var client = new ClientInfo
         {
             Domain = "WORKGROUP",
-            Username = "patri",
+            Username = "mario",
             ComputerName = "MYPC",
             SessionType = "Local"
         };
-        Assert.Equal(@"WORKGROUP\patri — MYPC — Local", client.DisplayName);
+        Assert.Equal(@"WORKGROUP\mario — MYPC — Local", client.DisplayName);
     }
 
     [Fact]

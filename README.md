@@ -273,22 +273,25 @@ mustread/
 
 Il piano tecnico completo, con priorità, dipendenze, criteri di accettazione e gate di rilascio, è disponibile in [docs/production-roadmap.md](docs/production-roadmap.md).
 
-### v1.1
-- [ ] Installer MSI / MSIX per deployment aziendale
-- [ ] Icona personalizzata per tipo messaggio (info / warning / critical)
-- [ ] Suono di notifica configurabile
-- [ ] Timeout opzionale (auto-conferma dopo N secondi)
+### v1.1 — Affidabilità
+- [x] Test versionati e CI su GitHub Actions
+- [x] Stato dei messaggi letti per utente (PC condivisi e RDP)
+- [x] Scritture con lock obbligatorio e atomiche
+- [x] Autorizzazione mittenti fail-closed e validazione destinatari
+- [x] Log diagnostico locale
+- [ ] Coda persistente per le conferme da sincronizzare sulla share
+- [ ] Test end-to-end multi-processo e multi-sessione RDP
+- [ ] Installer MSI / MSIX ed eseguibile firmato
 
-### v1.2
-- [ ] Invio a gruppi / reparti configurabili
-- [ ] Dashboard storico con filtri, ricerca e statistiche
-- [ ] Esportazione storico in CSV / Excel
+### v1.2 — Operatività e UX
+- [ ] Ricevute di lettura per destinatario visibili al mittente
+- [ ] Storico con filtri, ricerca ed export CSV
+- [ ] Livelli info / warning / critical e suono configurabile
+- [ ] Interfaccia in italiano e inglese, accessibilità da tastiera
 
-### v2.0
-- [ ] Integrazione Active Directory (lista utenti automatica)
+### v1.3 e oltre
+- [ ] Gruppi / reparti e integrazione opzionale con Active Directory
 - [ ] Backend HTTP opzionale (alternativa alla cartella SMB)
-- [ ] Servizio Windows per avvio prima del login utente
-- [ ] Firma digitale dell'eseguibile
 
 ---
 
