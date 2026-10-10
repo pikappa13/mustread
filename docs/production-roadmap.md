@@ -18,6 +18,25 @@ MustRead resterà uno strumento operativo interno: non dovrà essere presentato 
 
 ---
 
+## Avanzamento (ottobre 2026)
+
+Completati in `v1.1.0-rc.1`: Fase 0 (repository, test versionati, CI, solution, `AGENTS.md`,
+CHANGELOG), Fase 1 (stato letto per utente con merge tra processi, scritture atomiche, nessun
+fallback senza lock, coda persistente delle conferme, validazione destinatari), Fase 2 per la
+parte applicativa (autorizzazione fail-closed in `Send()`, matrice ACL documentata), Fase 3
+(log locale, stato nella tray, "Verifica connessione", polling non sovrapposti, jitter),
+Fase 4 per i test multi-processo, Fase 5 per l'MSI con smoke test e release con SHA-256.
+Le decisioni della sezione 10 su consegna e conferma sono fissate in
+[delivery-semantics.md](delivery-semantics.md).
+
+Restano per la `v1.1.0` finale: prova su un server RDP reale con più utenti e sessioni,
+firma Authenticode di exe e MSI (candidatura a SignPath Foundation per progetti open source),
+test UI automatizzati e verifica DPI/accessibilità. Le fasi 6–9 sono il piano della `v1.2+`.
+
+La baseline qui sotto descrive lo stato di partenza (`v1.0.1`).
+
+---
+
 ## 2. Baseline verificata
 
 Stato di partenza:

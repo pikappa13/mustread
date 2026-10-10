@@ -8,6 +8,9 @@ public static class AutostartService
     public static string RegistryKey { get; set; } = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "MustRead";
 
+    /// <summary>Passed on automatic starts: a second instance then exits silently.</summary>
+    public const string AutostartArgument = "--autostart";
+
     public static bool IsEnabled()
     {
         try
@@ -23,7 +26,7 @@ public static class AutostartService
         // CreateSubKey opens the key, or creates it when a fresh profile lacks it.
         using var key = Registry.CurrentUser.CreateSubKey(RegistryKey, true)
             ?? throw new InvalidOperationException("Impossibile aprire il registro di sistema.");
-        key.SetValue(ValueName, $"\"{exePath}\"");
+        key.SetValue(ValueName, $"\"{exePath}\" {AutostartArgument}");
     }
 
     public static void Disable()

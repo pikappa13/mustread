@@ -1,0 +1,67 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <!--
+    Public properties (msiexec /i MustRead.msi /qn PROPERTY=value):
+      SERVERPATH  UNC path of the share, stored in HKLM\SOFTWARE\MustRead\ServerPath.
+                  Used when C:\ProgramData\MustRead\settings.json has no serverPath.
+      AUTOSTART   1 = start MustRead at every user logon (HKLM Run key).
+    Both are remembered and reapplied on upgrade.
+    Never change the UpgradeCode: it links every version for major upgrades.
+  -->
+  <Package Name="MustRead"
+           Manufacturer="Patrick Battistini"
+           Version="$(ProductVersion)"
+           UpgradeCode="B9F707B9-E8A7-440B-8FD2-7E350910E292"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="È già installata una versione più recente di MustRead." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(RepoRoot)src\MustRead.App\Resources\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/pikappa13/mustread" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/pikappa13/mustread/blob/master/docs/setup.md" />
+
+    <!-- Remember properties across upgrades when not passed again on the command line. -->
+    <Property Id="SERVERPATH" Secure="yes">
+      <RegistrySearch Id="FindServerPath" Root="HKLM" Key="SOFTWARE\MustRead" Name="ServerPath" Type="raw" />
+    </Property>
+    <Property Id="AUTOSTART" Secure="yes">
+      <RegistrySearch Id="FindAutostart" Root="HKLM" Key="SOFTWARE\MustRead" Name="InstallAutostart" Type="raw" />
+    </Property>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MustRead">
+
+        <Component Id="MainExecutable" Bitness="always64">
+          <File Id="MustReadExe" Source="$(PublishDir)MustRead.exe" KeyPath="yes">
+            <Shortcut Id="MustReadShortcut" Directory="ProgramMenuFolder" Name="MustRead"
+                      Description="Notifiche obbligatorie con conferma di lettura"
+                      WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" Advertise="no" />
+          </File>
+        </Component>
+
+        <Component Id="ServerPathSetting" Bitness="always64" Condition="SERVERPATH">
+          <RegistryValue Root="HKLM" Key="SOFTWARE\MustRead" Name="ServerPath" Type="string" Value="[SERVERPATH]" KeyPath="yes" />
+        </Component>
+
+        <Component Id="MachineAutostart" Bitness="always64" Condition="AUTOSTART = &quot;1&quot;">
+          <RegistryValue Root="HKLM" Key="SOFTWARE\MustRead" Name="InstallAutostart" Type="string" Value="1" KeyPath="yes" />
+          <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run" Name="MustRead"
+                         Type="string" Value="&quot;[INSTALLFOLDER]MustRead.exe&quot; --autostart" />
+        </Component>
+
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="MustRead">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="ServerPathSetting" />
+      <ComponentRef Id="MachineAutostart" />
+    </Feature>
+
+  </Package>
+</Wix>

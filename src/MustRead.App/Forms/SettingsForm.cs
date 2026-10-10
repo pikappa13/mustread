@@ -50,7 +50,8 @@ public class SettingsForm : Form
             "tramite una voce nel registro di sistema:\n" +
             "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\n\n" +
             "Non richiede privilegi di amministratore. " +
-            "L'autostart vale solo per l'utente che salva questa impostazione."),
+            "L'autostart vale solo per l'utente corrente: dopo la prima configurazione " +
+            "si attiva o disattiva dal menu della tray icon (\"Avvia con Windows\")."),
     };
 
     public SettingsForm(SettingsService settings, bool showRestartWarning = false)
@@ -140,6 +141,14 @@ public class SettingsForm : Form
         // ── Autostart ───────────────────────────────────────────────────────
         layout.Controls.Add(MakeLabel(""), 0, row);
         _autostartCheck = new CheckBox { Text = "Avvia automaticamente con Windows", AutoSize = true };
+        // The elevated settings window runs as the administrator account: writing
+        // HKCU there would configure the admin's autostart, not the user's.
+        // In that mode autostart is managed from the tray menu instead.
+        if (_showRestartWarning)
+        {
+            _autostartCheck.Enabled = false;
+            _autostartCheck.Text = "Avvio automatico: usa il menu della tray icon";
+        }
         layout.Controls.Add(_autostartCheck, 1, row++);
 
         // ── Buttons (? | Annulla | Salva) ───────────────────────────────────
@@ -251,6 +260,12 @@ public class SettingsForm : Form
     private void PopulateFields()
     {
         _serverPathBox.Text = _settings.Settings.ServerPath;
+        if (_settings.ServerPathEnforcedByPolicy)
+        {
+            // Set by Group Policy (HKLM\SOFTWARE\Policies\MustRead): not editable here.
+            _serverPathBox.ReadOnly = true;
+            _serverPathBox.AccessibleDescription = "Impostato dai criteri di gruppo";
+        }
         _appNameBox.Text = _settings.Settings.ApplicationName;
         _pollingSpin.Value = Math.Clamp(_settings.Settings.PollingSeconds, 1, 60);
         _enableSenderCheck.Checked = _settings.Settings.EnableSender;
@@ -281,10 +296,14 @@ public class SettingsForm : Form
             _settings.Save();
 
             // Applica autostart indipendentemente dalle altre impostazioni
-            if (_autostartCheck.Checked)
-                AutostartService.Enable(Application.ExecutablePath);
-            else
-                AutostartService.Disable();
+            // (solo nella finestra non elevata, vedi sopra)
+            if (!_showRestartWarning)
+            {
+                if (_autostartCheck.Checked)
+                    AutostartService.Enable(Application.ExecutablePath);
+                else
+                    AutostartService.Disable();
+            }
 
             DialogResult = DialogResult.OK;
             if (_showRestartWarning)

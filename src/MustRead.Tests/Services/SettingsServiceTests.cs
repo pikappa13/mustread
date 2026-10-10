@@ -87,6 +87,41 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_UsesInstallerDefault_WhenSettingsHaveNoServerPath()
+    {
+        var svc = new TestableSettingsService(_testDir);
+        svc.MachineValues[@"SOFTWARE\MustRead\ServerPath"] = @"\\MSI\Share";
+        svc.Load();
+
+        Assert.Equal(@"\\MSI\Share", svc.Settings.ServerPath);
+        Assert.False(svc.ServerPathEnforcedByPolicy);
+    }
+
+    [Fact]
+    public void Load_SettingsFileWinsOverInstallerDefault()
+    {
+        File.WriteAllText(Path.Combine(_testDir, "settings.json"), @"{""serverPath"":""\\\\LOCAL\\Share""}");
+        var svc = new TestableSettingsService(_testDir);
+        svc.MachineValues[@"SOFTWARE\MustRead\ServerPath"] = @"\\MSI\Share";
+        svc.Load();
+
+        Assert.Equal(@"\\LOCAL\Share", svc.Settings.ServerPath);
+    }
+
+    [Fact]
+    public void Load_PolicyWinsOverEverything()
+    {
+        File.WriteAllText(Path.Combine(_testDir, "settings.json"), @"{""serverPath"":""\\\\LOCAL\\Share""}");
+        var svc = new TestableSettingsService(_testDir);
+        svc.MachineValues[@"SOFTWARE\MustRead\ServerPath"] = @"\\MSI\Share";
+        svc.MachineValues[@"SOFTWARE\Policies\MustRead\ServerPath"] = @"\\GPO\Share";
+        svc.Load();
+
+        Assert.Equal(@"\\GPO\Share", svc.Settings.ServerPath);
+        Assert.True(svc.ServerPathEnforcedByPolicy);
+    }
+
+    [Fact]
     public void PathHelpers_BuildCorrectPaths()
     {
         var svc = MakeService(@"{""serverPath"":""\\\\SRV\\MR""}");
@@ -112,4 +147,10 @@ internal class TestableSettingsService : SettingsService
     protected override string LocalSettingsPath => Path.Combine(_baseDir, "settings.json");
     protected override string LocalReadMessagesPath => Path.Combine(_baseDir, "read_messages.json");
     protected override string LegacyReadMessagesPath => Path.Combine(_baseDir, "legacy_read_messages.json");
+    protected override string LocalOutboxPath => Path.Combine(_baseDir, "outbox");
+
+    // Fake HKLM: tests must not depend on the registry of the machine running them.
+    public Dictionary<string, string> MachineValues { get; } = new();
+    protected override string? ReadMachineValue(string keyPath, string name)
+        => MachineValues.TryGetValue($@"{keyPath}\{name}", out var v) ? v : null;
 }

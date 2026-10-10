@@ -35,12 +35,14 @@ Perfetto per:
 | 🖥️ **Invio per computer** | Messaggi diretti a un PC specifico |
 | 📣 **Broadcast** | Invio a tutti gli utenti connessi contemporaneamente |
 | 📋 **Storico completo** | Log di messaggi inviati, mostrati e confermati |
-| 🩺 **Log diagnostico** | Log locale per utente in `%LOCALAPPDATA%\MustRead\logs` |
+| 💾 **Conferme durevoli** | Le conferme date con la rete giù restano in coda locale e arrivano allo storico dopo |
+| 🩺 **Stato e diagnostica** | Stato della connessione nella tray, "Verifica connessione" e log locale per utente |
 | 🔌 **Offline delivery** | I messaggi restano in coda se il PC è offline |
 | 🖧 **RDP / Terminal Server** | Funziona nelle sessioni Remote Desktop |
 | 🔒 **Autorizzazione mittenti** | Solo gli utenti autorizzati possono inviare messaggi |
 | ⚙️ **Zero dipendenze** | Solo una cartella SMB condivisa, nessun server |
-| 🚀 **Avvio automatico** | Si avvia con Windows tramite registro HKCU |
+| 🚀 **Avvio automatico** | Per l'utente dal menu tray, o per tutti gli utenti con l'MSI |
+| 📦 **Installer MSI** | Installazione silenziosa via GPO / Intune, con percorso share preconfigurato |
 
 ---
 
@@ -71,7 +73,7 @@ Perfetto per:
 ## Requisiti
 
 - **Sistema operativo:** Windows 10 / Windows 11 (x64)
-- **Runtime:** [.NET 8](https://dotnet.microsoft.com/download/dotnet/8.0) oppure build self-contained (incluso)
+- **Runtime:** nessuno da installare (exe e MSI includono .NET 8)
 - **Rete:** Cartella condivisa SMB accessibile in lettura/scrittura da tutti i PC
 - **Permessi:** Nessun privilegio di amministratore richiesto per la ricezione
 
@@ -79,11 +81,24 @@ Perfetto per:
 
 ## Installazione rapida
 
-### Opzione A — Eseguibile standalone (consigliata)
+Dalla [pagina Releases](https://github.com/pikappa13/mustread/releases) scarica i file e verifica l'integrità con `SHA256SUMS.txt`.
 
-Scarica `MustRead.exe` dalla [pagina Releases](https://github.com/pikappa13/mustread/releases) e copialo su ogni PC. Non richiede l'installazione di .NET.
+### Opzione A — Installer MSI (consigliata per più PC)
 
-### Opzione B — Compilazione da sorgente
+```bat
+msiexec /i MustRead-v1.1.0-win-x64.msi /qn SERVERPATH=\\SERVER\MustRead AUTOSTART=1
+```
+
+Installa in `Program Files`, imposta il percorso della share e l'avvio automatico per tutti gli utenti.
+Dettagli in [docs/setup.md](docs/setup.md).
+
+### Opzione B — Eseguibile singolo
+
+Scarica `MustRead.exe` e copialo su ogni PC. Non richiede l'installazione di .NET.
+
+> Gli eseguibili non sono ancora firmati digitalmente: Windows SmartScreen può mostrare un avviso.
+
+### Opzione C — Compilazione da sorgente
 
 ```bash
 git clone https://github.com/pikappa13/mustread.git
@@ -204,7 +219,8 @@ MustRead è compatibile con sessioni **Remote Desktop (RDP)** e **Terminal Serve
 - In ambienti Terminal Server, usa Group Policy o logon script per avviare MustRead per ogni utente
 - Il `clientId` include il `sessionId` per distinguere sessioni multiple dello stesso utente
 
-Vedere [docs/rdp-deployment.md](docs/rdp-deployment.md) per le istruzioni dettagliate.
+Vedere [docs/rdp-deployment.md](docs/rdp-deployment.md) per le istruzioni dettagliate e
+[docs/delivery-semantics.md](docs/delivery-semantics.md) per chi deve confermare cosa.
 
 ---
 
@@ -257,8 +273,10 @@ mustread/
 │   │   ├── Services/           ← Business logic: invio, ricezione, storico, registro
 │   │   ├── Models/             ← Modelli dati: AlertMessage, ClientInfo, AppSettings
 │   │   └── Utils/              ← FileLockHelper, JsonHelper, UiHelper
-│   └── MustRead.Tests/         ← Suite di test xUnit
+│   ├── MustRead.Tests/         ← Suite di test xUnit
+│   └── MustRead.TestHost/      ← Eseguibile di supporto per i test multi-processo
 ├── .github/workflows/          ← CI: build, test, coverage, scansione vulnerabilità
+├── installer/                  ← Installer MSI (WiX) e smoke test
 ├── examples/                   ← File di configurazione di esempio
 ├── docs/                       ← Documentazione setup, RDP, limitazioni
 ├── MustRead.sln
@@ -279,9 +297,11 @@ Il piano tecnico completo, con priorità, dipendenze, criteri di accettazione e 
 - [x] Scritture con lock obbligatorio e atomiche
 - [x] Autorizzazione mittenti fail-closed e validazione destinatari
 - [x] Log diagnostico locale
-- [ ] Coda persistente per le conferme da sincronizzare sulla share
-- [ ] Test end-to-end multi-processo e multi-sessione RDP
-- [ ] Installer MSI / MSIX ed eseguibile firmato
+- [x] Coda persistente per le conferme da sincronizzare sulla share
+- [x] Stato della connessione nella tray e "Verifica connessione"
+- [x] Test multi-processo reali e installer MSI verificato in CI
+- [ ] Prova su server RDP reale con più utenti e sessioni
+- [ ] Eseguibile e MSI firmati digitalmente
 
 ### v1.2 — Operatività e UX
 - [ ] Ricevute di lettura per destinatario visibili al mittente

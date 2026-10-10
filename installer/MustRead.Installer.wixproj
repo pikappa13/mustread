@@ -1,0 +1,24 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!--
+    Per-machine MSI for managed deployment (GPO / Intune / msiexec).
+    Expects the self-contained single-file MustRead.exe in $(PublishDir).
+
+      dotnet publish src/MustRead.App/MustRead.App.csproj -c Release -r win-x64 ^
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+      dotnet build installer/MustRead.Installer.wixproj -c Release -p:ProductVersion=1.1.0
+
+    WiX v5 is used on purpose: it is MS-RL licensed with no maintenance-fee EULA.
+  -->
+  <PropertyGroup>
+    <OutputName>MustRead</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.0.0</ProductVersion>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\out\</PublishDir>
+    <!-- ICE38/43/57 assume Start menu shortcuts are per-user; this package is
+         perMachine (ALLUSERS=1), so the shortcut goes to the all-users Start menu. -->
+    <SuppressIces>ICE38;ICE43;ICE57</SuppressIces>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);RepoRoot=$(MSBuildThisFileDirectory)..\</DefineConstants>
+  </PropertyGroup>
+
+</Project>

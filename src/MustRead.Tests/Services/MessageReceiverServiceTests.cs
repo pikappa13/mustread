@@ -378,7 +378,7 @@ public class MessageReceiverServiceTests : IDisposable
 
         Assert.True(File.Exists(shownPath));
         // RecordRead runs on a background thread; wait for it.
-        Assert.True(WaitUntil(() => File.Exists(readPath) && File.ReadAllText(readPath).Contains(msg.MessageId)),
+        Assert.True(WaitUntil(() => File.Exists(readPath) && FileLockHelper.ReadAllTextShared(readPath).Contains(msg.MessageId)),
             "read history should be written shortly after MarkAsRead");
         _receiver.Stop();
     }
@@ -745,5 +745,50 @@ public class MessageReceiverServiceTests : IDisposable
         _receiver.Stop();
 
         Assert.True(retried);
+    }
+
+    [Fact]
+    public void AckFromAnotherInstance_SuppressesMessageArrivingLater()
+    {
+        // Session A is running; session B of the same user acks a broadcast first.
+        _receiver.Start();
+        var other = new MessageReceiverService(_settings, _session, _history);
+        var id = AlertMessage.GenerateId();
+        other.MarkAsRead(id);
+
+        var received = new List<AlertMessage>();
+        _receiver.MessageReceived += received.Add;
+        WriteMessageToInbox(AllInbox, id: id);
+        Thread.Sleep(2500);
+        _receiver.Stop();
+
+        Assert.Empty(received);
+    }
+
+    [Fact]
+    public void Poll_WhenShareUnreachable_ReportsOffline()
+    {
+        var status = new ConnectionStatus();
+        _settings.Settings.ServerPath = Path.Combine(_testDir, "missing-share");
+        var receiver = new MessageReceiverService(_settings, _session, _history, status);
+
+        receiver.Start();
+        receiver.Stop();
+
+        Assert.False(status.IsOnline);
+    }
+
+    [Fact]
+    public void MarkAsRead_QueuesReadRecordBeforeReturning()
+    {
+        // Share made unreachable: the confirmation must still be stored locally.
+        var blocked = Path.Combine(_testDir, "blocked-share");
+        File.WriteAllText(blocked, "x");
+        _settings.Settings.ServerPath = blocked;
+
+        _receiver.MarkAsRead("queued-ack");
+
+        var outbox = _settings.GetLocalOutboxPath();
+        Assert.Contains(Directory.GetFiles(outbox, "*.json"), f => File.ReadAllText(f).Contains("queued-ack"));
     }
 }
