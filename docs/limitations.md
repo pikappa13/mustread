@@ -22,9 +22,24 @@ MustRead funziona correttamente dentro una sessione RDP, purché l'eseguibile
 sia avviato dall'utente nella propria sessione RDP. Non avvia notifiche in
 sessioni di altri utenti sullo stesso server.
 
-### Terminazione forzata
+### Terminazione forzata e crash
 Un amministratore locale può terminare il processo MustRead tramite Task Manager
 o altri strumenti di sistema. In quel caso il messaggio rimane non confermato.
+Se invece MustRead va in crash o smette di rispondere dopo almeno 60 secondi di
+esecuzione, Windows lo riavvia (Windows Error Reporting, `RegisterApplicationRestart`).
+Una terminazione da Task Manager non provoca il riavvio: il messaggio ricompare al
+successivo avvio di MustRead.
+
+### Più monitor
+L'alert occupa il monitor principale; gli altri monitor vengono oscurati con un
+avviso finché il messaggio non è confermato. L'alert torna in primo piano ogni due
+secondi senza prendere il focus della tastiera, così chi sta scrivendo altrove non
+lo conferma per errore.
+
+### Mittente dichiarato
+Il mittente mostrato nell'alert è quello scritto nel file del messaggio. È
+attendibile solo se il permesso di scrittura su `inbox\` è riservato ai mittenti,
+come indicato nella matrice ACL di [setup.md](setup.md).
 
 ### Connettività di rete
 MustRead richiede accesso alla cartella condivisa per ricevere messaggi. In caso di

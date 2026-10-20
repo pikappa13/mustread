@@ -1,3 +1,4 @@
+using MustRead.App.Models;
 using MustRead.App.Services;
 using MustRead.App.Utils;
 using Xunit;
@@ -211,5 +212,88 @@ public class MessageSenderServiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => _sender.Send("All", "all", "T", "   "));
         Assert.Throws<ArgumentException>(() =>
             _sender.Send("All", "all", "T", new string('x', MessageSenderService.MaxBodyLength + 1)));
+    }
+
+    // ---------------------------------------------------------------------
+    // Expiry and inbox cleanup
+    // ---------------------------------------------------------------------
+
+    private string AllInbox => Path.Combine(_testDir, "inbox", "all");
+
+    private AlertMessage ReadSingleMessage(string folder)
+        => JsonHelper.Deserialize<AlertMessage>(
+            File.ReadAllText(Assert.Single(Directory.GetFiles(folder, "*.json"))))!;
+
+    [Fact]
+    public void Send_WithoutRetention_HasNoExpiry()
+    {
+        _sender.Send("All", "all", "T", "body");
+        Assert.Null(ReadSingleMessage(AllInbox).ExpiresAt);
+    }
+
+    [Fact]
+    public void Send_WithRetention_StampsExpiry()
+    {
+        _settings.Settings.MessageRetentionDays = 7;
+        _sender.Send("All", "all", "T", "body");
+
+        var msg = ReadSingleMessage(AllInbox);
+        Assert.NotNull(msg.ExpiresAt);
+        Assert.Equal(msg.CreatedAt.AddDays(7), msg.ExpiresAt!.Value);
+    }
+
+    private string WriteInboxMessage(string folder, DateTime createdAt, DateTime? expiresAt)
+    {
+        Directory.CreateDirectory(folder);
+        var msg = new AlertMessage
+        {
+            MessageId = AlertMessage.GenerateId(),
+            TargetType = "All",
+            Target = "all",
+            Body = "b",
+            CreatedAt = createdAt,
+            ExpiresAt = expiresAt
+        };
+        var path = Path.Combine(folder, $"{msg.MessageId}.json");
+        FileLockHelper.WriteAllTextSafe(path, JsonHelper.Serialize(msg));
+        return path;
+    }
+
+    [Fact]
+    public void CleanupExpiredMessages_RemovesOnlyExpiredMessagesAndTheirLocks()
+    {
+        var userInbox = Path.Combine(_testDir, "inbox", "users", "DOM_mario");
+        var expired = WriteInboxMessage(userInbox, DateTime.Now.AddDays(-5), DateTime.Now.AddDays(-1));
+        var valid = WriteInboxMessage(AllInbox, DateTime.Now, DateTime.Now.AddDays(1));
+        var noExpiry = WriteInboxMessage(AllInbox, DateTime.Now.AddDays(-400), null);
+
+        Assert.Equal(1, _sender.CleanupExpiredMessages());
+
+        Assert.False(File.Exists(expired));
+        Assert.False(File.Exists(expired + ".lock"));
+        Assert.True(File.Exists(valid));
+        Assert.True(File.Exists(noExpiry)); // retention disabled: kept
+    }
+
+    [Fact]
+    public void CleanupExpiredMessages_WithRetention_RemovesOldMessagesWithoutExpiry()
+    {
+        _settings.Settings.MessageRetentionDays = 30;
+        var old = WriteInboxMessage(AllInbox, DateTime.Now.AddDays(-31), null);
+        var recent = WriteInboxMessage(AllInbox, DateTime.Now.AddDays(-1), null);
+
+        Assert.Equal(1, _sender.CleanupExpiredMessages());
+        Assert.False(File.Exists(old));
+        Assert.True(File.Exists(recent));
+    }
+
+    [Fact]
+    public void CleanupExpiredMessages_WhenNotAuthorized_DeletesNothing()
+    {
+        var expired = WriteInboxMessage(AllInbox, DateTime.Now.AddDays(-5), DateTime.Now.AddDays(-1));
+        _settings.Settings.EnableSender = false;
+
+        Assert.Equal(0, _sender.CleanupExpiredMessages());
+        Assert.True(File.Exists(expired));
     }
 }

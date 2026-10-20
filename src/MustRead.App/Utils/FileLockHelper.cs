@@ -71,6 +71,24 @@ public static class FileLockHelper
     }
 
     /// <summary>
+    /// Removes the sidecar lock of a file that has just been deleted, so cleanup
+    /// does not leave orphan .lock files on the share. Never fails: a lock still
+    /// held by someone else, or already gone, is simply left alone.
+    /// </summary>
+    public static void DeleteLockFile(string filePath)
+    {
+        var lockPath = filePath + ".lock";
+        try
+        {
+            File.Delete(lockPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.Warn($"File di lock non rimosso: '{lockPath}'", ex);
+        }
+    }
+
+    /// <summary>
     /// Reads a file that other processes may be appending to at the same time
     /// (history JSONL). File.ReadAllText would fail with "file in use".
     /// </summary>

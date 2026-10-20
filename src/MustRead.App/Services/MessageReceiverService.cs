@@ -21,6 +21,9 @@ public class MessageReceiverService
     // or still being acknowledged. Separate from _readMessageIds so it covers the
     // window between "shown" and "marked read".
     private readonly HashSet<string> _activeMessageIds = new();
+    // Message files that will never be shown here (expired, or addressed to a
+    // different user whose inbox folder name collides with ours): not re-read.
+    private readonly HashSet<string> _ignoredFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _sync = new();
     private System.Threading.Timer? _pollTimer;
     // 1 while a poll is running: a slow share must not stack overlapping polls.
@@ -100,11 +103,26 @@ public class MessageReceiverService
 
     private void ProcessMessageFile(string filePath, ClientInfo client)
     {
+        // Senders name every file after its message id: skip known messages
+        // without opening them, so the cost of a poll does not grow with the
+        // number of old messages kept in the inbox.
+        var fileId = Path.GetFileNameWithoutExtension(filePath);
+        lock (_sync)
+        {
+            if (_readMessageIds.Contains(fileId) || _activeMessageIds.Contains(fileId)) return;
+            if (_ignoredFiles.Contains(filePath)) return;
+        }
+
         AlertMessage? msg;
         try
         {
             var json = File.ReadAllText(filePath);
             msg = JsonHelper.Deserialize<AlertMessage>(json);
+        }
+        catch (FileNotFoundException)
+        {
+            // Removed by a sender's cleanup between listing and reading: nothing to show.
+            return;
         }
         catch (Exception ex)
         {
@@ -114,6 +132,19 @@ public class MessageReceiverService
         if (msg == null || string.IsNullOrWhiteSpace(msg.MessageId))
         {
             ReportBadFile(filePath, null);
+            return;
+        }
+
+        if (msg.IsExpired(DateTime.Now))
+        {
+            IgnoreFile(filePath, null);
+            return;
+        }
+        if (!msg.IsAddressedTo(client.Domain, client.Username))
+        {
+            // "DOM_A\B" and "DOM\A_B" share the inbox folder "DOM_A_B": only the
+            // user named in the message may see it.
+            IgnoreFile(filePath, $"Messaggio {msg.MessageId} indirizzato a un altro utente ('{msg.Target}'), ignorato");
             return;
         }
 
@@ -138,6 +169,16 @@ public class MessageReceiverService
             lock (_sync)
                 _activeMessageIds.Remove(msg.MessageId);
         }
+    }
+
+    private void IgnoreFile(string filePath, string? logMessage)
+    {
+        lock (_sync)
+        {
+            if (!_ignoredFiles.Add(filePath)) return;
+        }
+        if (logMessage != null)
+            Log.Info(logMessage);
     }
 
     private void ReportBadFile(string filePath, Exception? ex)

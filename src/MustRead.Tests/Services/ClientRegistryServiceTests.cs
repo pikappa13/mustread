@@ -136,4 +136,42 @@ public class ClientRegistryServiceTests : IDisposable
 
         _registry.StopHeartbeat();
     }
+
+    [Fact]
+    public void OnlineThreshold_FollowsHeartbeatButNeverBelowFivePolls()
+    {
+        _settings.Settings.PollingSeconds = 3;
+        _settings.Settings.HeartbeatSeconds = 30;
+        Assert.Equal(90, _registry.OnlineThresholdSeconds);
+
+        // Clients still writing every polling interval (rc.1) stay online.
+        _settings.Settings.HeartbeatSeconds = 2;
+        Assert.Equal(15, _registry.OnlineThresholdSeconds);
+    }
+
+    [Fact]
+    public void RemoveStaleClients_DeletesOnlyClientsGoneLongerThanMaxAge()
+    {
+        var clientsDir = Path.Combine(_testDir, "clients");
+        Directory.CreateDirectory(clientsDir);
+
+        ClientInfo Client(string user, DateTime lastSeen) => new()
+        {
+            ClientId = $"PC01_DOM_{user}_1",
+            Domain = "DOM",
+            Username = user,
+            ComputerName = "PC01",
+            LastSeen = lastSeen
+        };
+        var gone = Path.Combine(clientsDir, "PC01_DOM_gone_1.json");
+        var recent = Path.Combine(clientsDir, "PC01_DOM_recent_1.json");
+        FileLockHelper.WriteAllTextSafe(gone, JsonHelper.Serialize(Client("gone", DateTime.Now.AddDays(-8))));
+        FileLockHelper.WriteAllTextSafe(recent, JsonHelper.Serialize(Client("recent", DateTime.Now.AddDays(-1))));
+
+        Assert.Equal(1, _registry.RemoveStaleClients(TimeSpan.FromDays(7)));
+
+        Assert.False(File.Exists(gone));
+        Assert.False(File.Exists(gone + ".lock"));
+        Assert.True(File.Exists(recent));
+    }
 }

@@ -64,4 +64,42 @@ public class AlertMessageTests
         Assert.Equal("Corpo del messaggio", msg.Body);
         Assert.False(msg.RequiresAcknowledgement);
     }
+
+    [Theory]
+    [InlineData(@"DOM\mario", "", "DOM", "mario", true)]
+    [InlineData(@"dom\MARIO", "", "DOM", "mario", true)]
+    [InlineData("mario", "DOM", "DOM", "mario", true)]
+    [InlineData(@"DOM_A\b", "", "DOM", "A_b", false)]   // same inbox folder "DOM_A_b"
+    [InlineData(@"DOM\A_b", "", "DOM_A", "b", false)]
+    [InlineData("mario", "ALTRO", "DOM", "mario", false)]
+    public void IsAddressedTo_UserTarget(string target, string senderDomain, string domain, string user, bool expected)
+    {
+        var msg = new AlertMessage { TargetType = "User", Target = target, SenderDomain = senderDomain };
+        Assert.Equal(expected, msg.IsAddressedTo(domain, user));
+    }
+
+    [Theory]
+    [InlineData("Computer", "PC01")]
+    [InlineData("All", "all")]
+    public void IsAddressedTo_NonUserTargets_AlwaysMatch(string targetType, string target)
+    {
+        var msg = new AlertMessage { TargetType = targetType, Target = target };
+        Assert.True(msg.IsAddressedTo("DOM", "mario"));
+    }
+
+    [Fact]
+    public void IsExpired_UsesExpiresAt()
+    {
+        var now = DateTime.Now;
+        Assert.False(new AlertMessage().IsExpired(now));
+        Assert.False(new AlertMessage { ExpiresAt = now.AddMinutes(1) }.IsExpired(now));
+        Assert.True(new AlertMessage { ExpiresAt = now.AddMinutes(-1) }.IsExpired(now));
+    }
+
+    [Fact]
+    public void ExpiresAt_NotWrittenWhenNull_KeepsV11FileFormat()
+    {
+        var json = MustRead.App.Utils.JsonHelper.Serialize(new AlertMessage { MessageId = "x" });
+        Assert.DoesNotContain("expiresAt", json);
+    }
 }

@@ -16,6 +16,7 @@ public class MainForm : Form
     private readonly HistoryService _history;
     private readonly ConnectionStatus _status;
     private readonly DiagnosticsService _diagnostics;
+    private readonly MaintenanceService _maintenance;
 
     private NotifyIcon _trayIcon = null!;
     private ToolStripMenuItem _autostartItem = null!;
@@ -34,7 +35,8 @@ public class MainForm : Form
         MessageReceiverService receiver,
         HistoryService history,
         ConnectionStatus status,
-        DiagnosticsService diagnostics)
+        DiagnosticsService diagnostics,
+        MaintenanceService maintenance)
     {
         _settings = settings;
         _registry = registry;
@@ -43,6 +45,7 @@ public class MainForm : Form
         _history = history;
         _status = status;
         _diagnostics = diagnostics;
+        _maintenance = maintenance;
         InitializeComponent();
     }
 
@@ -187,6 +190,7 @@ public class MainForm : Form
         _receiver.Stop();
         _registry.StopHeartbeat();
         _history.StopBackgroundFlush();
+        _maintenance.Stop();
         Application.Exit();
     }
 
@@ -232,6 +236,8 @@ public class MainForm : Form
             _registry.StartHeartbeat();
             // Retries records queued while the share was offline (or from a previous run).
             _history.StartBackgroundFlush(TimeSpan.FromSeconds(30));
+            if (_settings.Settings.EnableSender)
+                _maintenance.Start(TimeSpan.FromMinutes(1), TimeSpan.FromHours(1));
         }
         catch (Exception ex)
         {

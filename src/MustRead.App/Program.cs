@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using MustRead.App.Forms;
 using MustRead.App.Services;
 using MustRead.App.Utils;
@@ -35,18 +36,20 @@ static class Program
         }
 
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        // End users get a short message; the details (type and message) go to the log.
         Application.ThreadException += (_, ex) =>
         {
             Log.Error("Eccezione non gestita nel thread UI", ex.Exception);
-            MessageBox.Show(ex.Exception.ToString(), "MustRead — Errore imprevisto",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(
+                $"Si è verificato un errore imprevisto. MustRead continua a funzionare.\n\nDettagli nel log: {Log.Directory}",
+                "MustRead — Errore imprevisto", MessageBoxButtons.OK, MessageBoxIcon.Error);
         };
+        // The process is terminating: no dialog, so Windows can restart it right
+        // away (see RegisterForRestart) instead of waiting for a click.
         AppDomain.CurrentDomain.UnhandledException += (_, ex) =>
-        {
-            Log.Error("Eccezione critica non gestita", ex.ExceptionObject as Exception);
-            MessageBox.Show(ex.ExceptionObject?.ToString(), "MustRead — Errore critico",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-        };
+            Log.Error("Eccezione critica non gestita, MustRead verrà riavviato", ex.ExceptionObject as Exception);
+
+        RegisterForRestart();
 
         Log.Info($"MustRead {Application.ProductVersion} avviato");
 
@@ -69,8 +72,34 @@ static class Program
         var sender = new MessageSenderService(settings, session, history);
         var receiver = new MessageReceiverService(settings, session, history, status);
         var diagnostics = new DiagnosticsService(settings, session, history, sender, status);
+        var maintenance = new MaintenanceService(sender, registry);
 
-        Application.Run(new MainForm(settings, registry, sender, receiver, history, status, diagnostics));
+        Application.Run(new MainForm(settings, registry, sender, receiver, history, status, diagnostics, maintenance));
+    }
+
+    private const int RestartNoReboot = 8;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int RegisterApplicationRestart(string? commandLine, int flags);
+
+    /// <summary>
+    /// Asks Windows Error Reporting to restart MustRead if it crashes or hangs
+    /// (after it has run for at least 60 seconds), so a crash does not leave the
+    /// user without alerts until the next logon. Not after a reboot: autostart
+    /// already covers that. The autostart argument keeps a restarted duplicate quiet.
+    /// </summary>
+    private static void RegisterForRestart()
+    {
+        try
+        {
+            var hr = RegisterApplicationRestart(AutostartService.AutostartArgument, RestartNoReboot);
+            if (hr != 0)
+                Log.Warn($"Registrazione del riavvio automatico non riuscita (HRESULT 0x{hr:X8})");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Registrazione del riavvio automatico non riuscita", ex);
+        }
     }
 
     private static void RunSettingsOnly()

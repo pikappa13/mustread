@@ -26,6 +26,14 @@ I messaggi restano nell'inbox sulla share e non vengono mai cancellati dai desti
 Un destinatario che si collega dopo l'invio vede tutti i messaggi a lui destinati che
 non ha ancora confermato, anche se inviati prima della sua prima connessione.
 
+## Scadenza e destinatario
+
+- Un messaggio con `expiresAt` passato non viene più mostrato, anche se non è mai
+  stato confermato (vedi `messageRetentionDays`). Una conferma già data resta nello storico.
+- Un messaggio di tipo utente viene mostrato solo all'utente indicato nel campo
+  `target`, anche se la sua cartella inbox coincide con quella di un altro utente
+  (`DOM_A\B` e `DOM\A_B` usano entrambi `DOM_A_B`).
+
 ## Cosa succede al clic su "HO LETTO"
 
 1. Il pulsante si disattiva (nessuna doppia conferma).

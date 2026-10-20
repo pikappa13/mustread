@@ -86,5 +86,18 @@ conferma di un utente non influisce sugli altri. Al primo avvio viene importato
 il vecchio file `C:\ProgramData\MustRead\read_messages.json` della v1.0.x,
 per non rimostrare messaggi già letti.
 
-Periodicamente si può svuotare manualmente le cartelle inbox o implementare
-uno script di cleanup.
+I destinatari non cancellano mai i file dei messaggi. La pulizia la fanno le istanze
+con l'invio abilitato e autorizzato, un minuto dopo l'avvio e poi ogni ora:
+
+- **Messaggi scaduti.** Con `messageRetentionDays` maggiore di 0 il mittente scrive nel
+  messaggio la scadenza (`expiresAt`). Dopo la scadenza il messaggio non viene più
+  mostrato e viene rimosso dall'inbox insieme al suo file `.lock`. I messaggi senza
+  `expiresAt` (inviati prima della 1.1) vengono rimossi `messageRetentionDays` giorni
+  dopo la creazione. Con `messageRetentionDays` a 0 (default) restano per sempre, come
+  nelle versioni precedenti.
+- **Client inattivi.** I file in `clients\` di sessioni non viste da più di 7 giorni
+  vengono rimossi; un client che torna li riscrive al primo heartbeat.
+
+Il polling non rilegge i messaggi già confermati: il nome del file è l'ID del
+messaggio, quindi viene saltato senza aprirlo. Il costo di un polling dipende dai
+messaggi nuovi, non da quanti ne restano nell'inbox.

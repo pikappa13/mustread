@@ -791,4 +791,99 @@ public class MessageReceiverServiceTests : IDisposable
         var outbox = _settings.GetLocalOutboxPath();
         Assert.Contains(Directory.GetFiles(outbox, "*.json"), f => File.ReadAllText(f).Contains("queued-ack"));
     }
+
+    // ---------------------------------------------------------------------
+    // Polling cost, expiry and addressing
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public void Poll_SkipsFilesOfAcknowledgedMessagesWithoutReadingThem()
+    {
+        // Regression: every poll used to open and parse every inbox file, even
+        // messages confirmed long ago. A file named after a read id must be skipped.
+        var received = new List<AlertMessage>();
+        _receiver.MessageReceived += received.Add;
+
+        var first = WriteMessageToInbox(AllInbox, "first");
+        _receiver.Start();
+        Assert.True(WaitUntil(() => received.Count >= 1));
+        _receiver.MarkAsRead(first.MessageId);
+
+        // Same file name, different content: only observable if the file is read.
+        var swapped = new AlertMessage { MessageId = AlertMessage.GenerateId(), Body = "swapped", TargetType = "All", Target = "all" };
+        File.WriteAllText(Path.Combine(AllInbox, $"{first.MessageId}.json"), JsonHelper.Serialize(swapped));
+
+        Thread.Sleep(2500); // at least two polls at PollingSeconds = 1
+        _receiver.Stop();
+
+        Assert.Single(received);
+        Assert.Equal("first", received[0].Body);
+    }
+
+    [Fact]
+    public void ExpiredMessage_IsNotShown()
+    {
+        var received = new List<AlertMessage>();
+        _receiver.MessageReceived += received.Add;
+
+        Directory.CreateDirectory(AllInbox);
+        var expired = new AlertMessage
+        {
+            MessageId = AlertMessage.GenerateId(),
+            Body = "expired",
+            TargetType = "All",
+            Target = "all",
+            CreatedAt = DateTime.Now.AddDays(-10),
+            ExpiresAt = DateTime.Now.AddDays(-3)
+        };
+        File.WriteAllText(Path.Combine(AllInbox, $"{expired.MessageId}.json"), JsonHelper.Serialize(expired));
+        var valid = WriteMessageToInbox(AllInbox, "valid");
+
+        _receiver.Start();
+        Assert.True(WaitUntil(() => received.Count >= 1));
+        Thread.Sleep(1500);
+        _receiver.Stop();
+
+        Assert.Single(received);
+        Assert.Equal(valid.MessageId, received[0].MessageId);
+    }
+
+    [Fact]
+    public void UserMessage_ForAnotherUserInCollidingFolder_IsNotShown()
+    {
+        // Regression: "DOM_A\B" and "DOM\A_B" share the folder "DOM_A_B".
+        var received = new List<AlertMessage>();
+        _receiver.MessageReceived += received.Add;
+        var me = _session.GetCurrentSession();
+
+        Directory.CreateDirectory(UserInbox);
+        var forOther = new AlertMessage
+        {
+            MessageId = AlertMessage.GenerateId(),
+            Body = "for someone else",
+            TargetType = "User",
+            Target = $@"{me.Domain}_x\{me.Username}",
+            SenderDomain = me.Domain,
+            CreatedAt = DateTime.Now
+        };
+        var forMe = new AlertMessage
+        {
+            MessageId = AlertMessage.GenerateId(),
+            Body = "for me",
+            TargetType = "User",
+            Target = me.Username, // no domain: the sender's domain applies
+            SenderDomain = me.Domain,
+            CreatedAt = DateTime.Now
+        };
+        File.WriteAllText(Path.Combine(UserInbox, $"{forOther.MessageId}.json"), JsonHelper.Serialize(forOther));
+        File.WriteAllText(Path.Combine(UserInbox, $"{forMe.MessageId}.json"), JsonHelper.Serialize(forMe));
+
+        _receiver.Start();
+        Assert.True(WaitUntil(() => received.Count >= 1));
+        Thread.Sleep(1500);
+        _receiver.Stop();
+
+        Assert.Single(received);
+        Assert.Equal("for me", received[0].Body);
+    }
 }

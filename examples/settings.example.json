@@ -3,6 +3,8 @@
   "enableSender": true,
   "enableReceiver": true,
   "pollingSeconds": 3,
+  "heartbeatSeconds": 10,
+  "messageRetentionDays": 0,
   "allowSendToAll": true,
   "applicationName": "MustRead",
   "requireAuthorizedSenders": false

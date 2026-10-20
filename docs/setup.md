@@ -138,6 +138,9 @@ Copiare il contenuto da `examples\settings.example.json` e adattare:
 - `enableSender`: mettere `false` sui PC che non devono poter inviare messaggi
 - `enableReceiver`: mettere `false` per disabilitare completamente la ricezione
 - `pollingSeconds`: frequenza di controllo nuovi messaggi
+- `heartbeatSeconds` (opzionale, default 10): frequenza con cui il client segnala la propria presenza
+- `messageRetentionDays` (opzionale, default 0 = mai): giorni dopo cui un messaggio scade e viene
+  rimosso dall'inbox dai mittenti; impostarlo sui PC dei mittenti
 
 ## 4. (Opzionale) Configurare i mittenti autorizzati
 

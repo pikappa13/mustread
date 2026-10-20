@@ -2,6 +2,26 @@
 
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [Non rilasciato]
+
+### Aggiunto
+- Scadenza dei messaggi con `messageRetentionDays`: il mittente scrive `expiresAt` nel messaggio, i messaggi scaduti non vengono mostrati e le istanze mittenti autorizzate li rimuovono dall'inbox ogni ora.
+- Rimozione automatica da `clients\` delle sessioni non viste da più di 7 giorni.
+- Impostazione `heartbeatSeconds` (default 10), separata da `pollingSeconds`.
+- Su più monitor gli schermi secondari vengono oscurati finché l'alert non è confermato.
+- Riavvio automatico di MustRead da parte di Windows dopo un crash o un blocco.
+
+### Modificato
+- Il polling salta i messaggi già confermati senza aprirne il file: il carico sulla share non cresce più con il numero di messaggi conservati.
+- L'heartbeat non viene più scritto a ogni polling ma ogni `heartbeatSeconds`; la soglia "online" è il maggiore tra 3 heartbeat e 5 polling, quindi i client rc.1 restano visibili.
+- Il testo lungo dell'alert scorre invece di essere tagliato e il titolo va a capo.
+- L'alert viene riportato in primo piano ogni due secondi senza prendere il focus.
+- Gli errori imprevisti mostrano un messaggio breve con il percorso del log invece dello stack trace.
+
+### Corretto
+- Il carattere `&` nel titolo, nel testo o nel mittente dell'alert veniva nascosto o sottolineato ("R&D" appariva come "RD").
+- Un messaggio per `DOM_A\B` veniva mostrato anche a `DOM\A_B` (stessa cartella inbox): ora conta il destinatario scritto nel messaggio.
+
 ## [1.1.0-rc.1] - 2026-10-10
 
 Prima release candidate della 1.1. Vedi [docs/delivery-semantics.md](docs/delivery-semantics.md)

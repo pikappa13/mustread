@@ -146,6 +146,8 @@ In alternativa, crea `C:\ProgramData\MustRead\settings.json`:
   "enableSender": true,
   "enableReceiver": true,
   "pollingSeconds": 3,
+  "heartbeatSeconds": 10,
+  "messageRetentionDays": 0,
   "allowSendToAll": true,
   "applicationName": "MustRead",
   "requireAuthorizedSenders": false
@@ -158,6 +160,8 @@ In alternativa, crea `C:\ProgramData\MustRead\settings.json`:
 | `enableSender` | Abilita la schermata di invio (solo per admin) |
 | `enableReceiver` | Abilita la ricezione notifiche in background |
 | `pollingSeconds` | Frequenza di controllo nuovi messaggi (secondi) |
+| `heartbeatSeconds` | Frequenza con cui il client segnala la propria presenza in `clients\` (secondi, default 10) |
+| `messageRetentionDays` | Giorni di validità dei messaggi inviati; `0` = nessuna scadenza. I messaggi scaduti non vengono mostrati e i mittenti li rimuovono dall'inbox |
 | `allowSendToAll` | Abilita il broadcast a tutti gli utenti |
 | `applicationName` | Nome visualizzato nell'interfaccia |
 | `requireAuthorizedSenders` | Se `true`, senza `authorized_senders.json` nessuno può inviare |
@@ -257,6 +261,7 @@ A: No. Richiede Windows 10 o Windows 11 con .NET 8. Per Windows 7 sarebbe necess
 - ❌ Un amministratore può **terminare il processo** MustRead
 - ❌ Non è un sistema di **emergenza certificato**
 - ❌ I messaggi sono **in chiaro** (file JSON non cifrati)
+- ⚠️ Il mittente mostrato nell'alert è quello dichiarato nel file: affidabile solo se la scrittura su `inbox\` è limitata ai mittenti (ACL)
 - ⚠️ Per RDP: l'agent deve girare **dentro la sessione** dell'utente
 
 Vedere [docs/limitations.md](docs/limitations.md) per i dettagli.

@@ -42,7 +42,7 @@ public class DiagnosticsService
             return results;
         }
         results.Add(new("Configurazione", DiagnosticLevel.Ok,
-            $"Polling {s.PollingSeconds}s, invio {(s.EnableSender ? "attivo" : "disattivo")}, ricezione {(s.EnableReceiver ? "attiva" : "disattiva")}."));
+            $"Polling {s.PollingSeconds}s, heartbeat {s.HeartbeatSeconds}s, scadenza messaggi {(s.MessageRetentionDays > 0 ? $"{s.MessageRetentionDays} giorni" : "nessuna")}, invio {(s.EnableSender ? "attivo" : "disattivo")}, ricezione {(s.EnableReceiver ? "attiva" : "disattiva")}."));
 
         var sw = Stopwatch.StartNew();
         bool reachable;
