@@ -9,7 +9,7 @@ public class AlertForm : Form
     private readonly MessageReceiverService _receiver;
 
     private Label _titleLabel = null!;
-    private Label _bodyLabel = null!;
+    private TextBox _bodyTextBox = null!;
     private Label _senderLabel = null!;
     private Button _ackButton = null!;
     private bool _acknowledged = false;
@@ -52,14 +52,21 @@ public class AlertForm : Form
             Dock = DockStyle.None
         };
 
-        _bodyLabel = new Label
+        // Multiline read-only text lets users read long alerts without clipping
+        // the message or covering the confirmation button.
+        _bodyTextBox = new TextBox
         {
             Text = _message.Body,
             Font = new Font("Segoe UI", 18f),
             ForeColor = Color.White,
-            AutoSize = false,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.None
+            BackColor = Color.FromArgb(30, 30, 30),
+            Multiline = true,
+            ReadOnly = true,
+            WordWrap = true,
+            ScrollBars = ScrollBars.Vertical,
+            BorderStyle = BorderStyle.None,
+            TextAlign = HorizontalAlignment.Center,
+            TabStop = true
         };
 
         _senderLabel = new Label
@@ -94,7 +101,7 @@ public class AlertForm : Form
             Anchor = AnchorStyles.Bottom | AnchorStyles.Right
         };
 
-        Controls.AddRange(new Control[] { _titleLabel, _bodyLabel, _senderLabel, _ackButton, footerLabel });
+        Controls.AddRange(new Control[] { _titleLabel, _bodyTextBox, _senderLabel, _ackButton, footerLabel });
 
         Load += (_, _) =>
         {
@@ -117,7 +124,7 @@ public class AlertForm : Form
         var pad = 60;
 
         _titleLabel.SetBounds(pad, (int)(h * 0.25), w - pad * 2, 60);
-        _bodyLabel.SetBounds(pad, (int)(h * 0.38), w - pad * 2, (int)(h * 0.28));
+        _bodyTextBox.SetBounds(pad, (int)(h * 0.38), Math.Max(1, w - pad * 2), Math.Max(1, (int)(h * 0.28)));
         _senderLabel.SetBounds(pad, (int)(h * 0.70), w - pad * 2, 30);
         _ackButton.Location = new Point((w - _ackButton.Width) / 2, (int)(h * 0.78));
     }
